@@ -444,13 +444,14 @@ totalMillis timer =
     timer.warmup + timer.duration
 
 
-remaining : TimerState -> Int -> Int
-remaining timer elapsed =
-    if elapsed < timer.warmup then
-        timer.warmup - elapsed
+remaining : Phase -> TimerState -> Int -> Int
+remaining phase timer elapsed =
+    case phase of
+        Preparing ->
+            clamp 0 timer.warmup (timer.warmup - elapsed)
 
-    else
-        clamp 0 timer.duration (totalMillis timer - elapsed)
+        Meditating ->
+            clamp 0 timer.duration (totalMillis timer - elapsed)
 
 
 {-| Fires a Tick after `ms`, used to ring bells exactly on time.
@@ -494,12 +495,13 @@ formatTime ms =
 colors =
     { bg = rgb255 0x1E 0x1E 0x2E
     , fg = rgb255 0xCD 0xD6 0xF4
+    , inactive = rgb255 0x8B 0x8B 0x8B
     , accent = rgb255 0xF3 0x8B 0xA8
     }
 
 
-timerDisplay : Model -> Element Msg
-timerDisplay model =
+timerDisplay : Phase -> Model -> Element Msg
+timerDisplay phase model =
     let
         timer =
             model.timer
@@ -511,9 +513,32 @@ timerDisplay model =
 
                 Nothing ->
                     timer.elapsedBefore
+
+        fontSize =
+            case phase of
+                Preparing ->
+                    36
+
+                Meditating ->
+                    64
+
+        remainingTime =
+            remaining phase timer elapsed
+
+        foregroundColor =
+            case phase of
+                Preparing ->
+                    if remainingTime > 0 then
+                        colors.fg
+
+                    else
+                        colors.bg
+
+                Meditating ->
+                    colors.fg
     in
-    el [ centerX, Font.size 64, Font.variant Font.tabularNumbers ]
-        (remaining timer elapsed
+    el [ centerX, Font.size fontSize, Font.color foregroundColor, Font.variant Font.tabularNumbers ]
+        (remainingTime
             |> formatTime
             |> text
         )
@@ -554,7 +579,8 @@ view model =
         ]
         (column [ centerX, centerY, spacing 24, padding 16 ]
             [ el [ centerX, Font.size 32, Font.semiBold ] (text "Meditation Timer")
-            , timerDisplay model
+            , timerDisplay Preparing model
+            , timerDisplay Meditating model
             , row [ centerX, spacing 16 ]
                 [ timerButton model
                 ]
