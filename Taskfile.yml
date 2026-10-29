@@ -1,0 +1,51 @@
+version: '3'
+
+vars:
+  MAIN: src/Main.elm
+  PUBLIC: public
+  DIST: docs
+  PORT: '{{.PORT | default "8000"}}'
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  build:
+    desc: Production build into docs/ for GitHub Pages (service worker cache versioned by content)
+    deps: [icons]
+    cmds:
+      - rm -rf {{.DIST}}
+      - mkdir -p {{.DIST}}
+      - rsync -a --exclude elm.js --exclude .DS_Store {{.PUBLIC}}/ {{.DIST}}/
+      - elm make {{.MAIN}} --optimize --output={{.DIST}}/elm.js
+      - sed -i '' "s/__BUILD_ID__/$(find {{.DIST}} -type f ! -name sw.js | sort | xargs cat | shasum | cut -c1-8)/" {{.DIST}}/sw.js
+      - touch {{.DIST}}/.nojekyll
+
+  dev:
+    desc: Dev server with live reload (debugger enabled)
+    deps: [icons]
+    cmds:
+      - elm-live {{.MAIN}} --dir={{.PUBLIC}} --port={{.PORT}} --open -- --debug --output={{.PUBLIC}}/elm.js
+
+  serve:
+    desc: Serve the production build on the LAN (to test install on a phone)
+    deps: [build]
+    dir: '{{.DIST}}'
+    cmds:
+      - python3 -m http.server {{.PORT}} --bind 0.0.0.0
+
+  icons:
+    desc: Render PNG icons from icon.svg
+    sources:
+      - '{{.PUBLIC}}/icons/icon.svg'
+    generates:
+      - '{{.PUBLIC}}/icons/icon-*.png'
+    cmds:
+      - for: ['180', '192', '512']
+        cmd: magick -background none {{.PUBLIC}}/icons/icon.svg -resize {{.ITEM}}x{{.ITEM}} PNG24:{{.PUBLIC}}/icons/icon-{{.ITEM}}.png
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - rm -rf {{.DIST}} {{.PUBLIC}}/elm.js elm-stuff .task

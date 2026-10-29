@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#000"/>
+  <!-- ripple: ring centres at λ and 2λ, widths w and 2w (λ ≈ 82, w = λ/3)
+       colour: lightness (CIE L*) damped by e^(-r/λ): 100 → 36.8 → 13.5 -->
+  <circle cx="256" cy="256" r="192" fill="#232323"/>  <!-- outer ring: 137–192 -->
+  <circle cx="256" cy="256" r="137" fill="#000"/>
+  <circle cx="256" cy="256" r="96"  fill="#575757"/>  <!-- middle ring: 69–96 -->
+  <circle cx="256" cy="256" r="69"  fill="#000"/>
+  <circle cx="256" cy="256" r="18"  fill="#fff"/>     <!-- dot -->
+</svg>

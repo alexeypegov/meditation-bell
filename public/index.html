@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Timer</title>
+
+  <!-- PWA / home screen install -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1e1e2e">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Timer">
+
+  <link rel="stylesheet" href="style.css">
+  <script src="elm.js"></script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script>
+    var app = Elm.Main.init({node: document.getElementById("app")});
+
+    var wakeLock = null;
+    var wantAwake = false;
+    var playing = [];
+
+    function acquireWakeLock() {
+      navigator.wakeLock.request("screen")
+        .then(function (lock) {
+          if (!wantAwake) {lock.release(); return;}
+          wakeLock = lock;
+          lock.addEventListener("release", function () {
+            wakeLock = null;
+            if (!wantAwake) return;               // we released it ourselves
+
+            if (document.hasFocus()) {
+              acquireWakeLock();                   // system released it while we're in front
+            } else if (app.ports.pageHidden) {
+              app.ports.pageHidden.send(null);     // page went away
+            }
+          });
+        })
+        .catch(function (err) {console.warn("Wake lock failed:", err);});
+    }
+
+    app.ports.keepAwake.subscribe(function (on) {
+      wantAwake = on;
+      if (!("wakeLock" in navigator)) return;
+
+      if (on && !wakeLock) {
+        acquireWakeLock();
+      } else if (!on && wakeLock) {
+        wakeLock.release();
+        wakeLock = null;
+      }
+    });
+
+
+    var audioCtx = new AudioContext();
+    var buffers = {};
+
+    ["starting", "interval-1", "interval-2", "interval-3", "final"].forEach(function (name) {
+      fetch("sounds/" + name + ".mp3")
+        .then(r => r.arrayBuffer())
+        .then(data => audioCtx.decodeAudioData(data))
+        .then(buf => buffers[name] = buf)
+        .catch(err => console.warn("Failed to load sound:", name, err))
+    })
+
+    // Browsers only allow audio after a user gesture, and iOS suspends the
+    // context when the app goes to the background, so resume on every tap
+    function unlockAudio() {
+      if (audioCtx.state !== "running") audioCtx.resume();
+    }
+
+    ["click", "touchend", "keydown"].forEach(type => document.addEventListener(type, unlockAudio))
+
+    // iOS: play even when the ringer switch is on silent (Safari 17+)
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+
+    if (app.ports && app.ports.playBell) {
+      app.ports.playBell.subscribe(function (name) {
+        var buf = buffers[name];
+        if (!buf) {console.warn("Sound not loaded:", name); return;}
+        var gain = audioCtx.createGain();
+        var src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(gain).connect(audioCtx.destination);
+
+        var entry = {src: src, gain: gain};
+        playing.push(entry);
+        src.onended = () => playing = playing.filter(e => e !== entry)
+        src.start();
+      });
+    }
+
+    if (app.ports && app.ports.stopBells) {
+      app.ports.stopBells.subscribe(function () {
+        var t = audioCtx.currentTime;
+        playing.forEach(function (e) {
+          e.gain.gain.setValueAtTime(e.gain.gain.value, t);
+          e.gain.gain.linearRampToValueAtTime(0, t + 0.3);
+          e.src.stop(t + 0.3);
+        });
+
+        playing = [];
+      });
+    }
+
+    // Service worker enables offline use + installability. Skipped on
+    // localhost so it doesn't cache stale builds during elm-live sessions.
+    var isLocal = ["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1;
+    if ("serviceWorker" in navigator && !isLocal) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+
+</html>

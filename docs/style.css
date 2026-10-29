@@ -1,0 +1,14 @@
+/* Layout and styling live in elm-ui; this only covers what it can't reach. */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #1e1e2e;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#app, body > div {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
