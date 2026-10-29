@@ -107,7 +107,7 @@ intervalCount =
 
 initialConfig : Configuration
 initialConfig =
-    { duration = 300
+    { duration = 900
     , warmup = Just 60
     , rate = MoreOften
     }

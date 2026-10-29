@@ -4986,7 +4986,7 @@ var $author$project$Main$MoreOften = 2;
 var $author$project$Main$initialConfig = {
 	ac: 2,
 	s: $elm$core$Maybe$Just(60),
-	M: 300
+	M: 900
 };
 var $author$project$Main$init = function (_v0) {
 	return _Utils_Tuple2(

@@ -26,12 +26,16 @@
     var app = Elm.Main.init({node: document.getElementById("app")});
 
     var wakeLock = null;
+    var wakeLockPending = false;
     var wantAwake = false;
-    var playing = [];
 
     function acquireWakeLock() {
+      if (wakeLock || wakeLockPending) return;
+      wakeLockPending = true;
+
       navigator.wakeLock.request("screen")
         .then(function (lock) {
+          wakeLockPending = false;
           if (!wantAwake) {lock.release(); return;}
           wakeLock = lock;
           lock.addEventListener("release", function () {
@@ -45,10 +49,16 @@
             }
           });
         })
-        .catch(function (err) {console.warn("Wake lock failed:", err);});
+        .catch(function (err) {
+          wakeLockPending = false;
+          console.warn("Wake lock failed:", err);
+        });
     }
 
     app.ports.keepAwake.subscribe(function (on) {
+      // try to recover broken audio context, iOS can left old one attached to a previous outpot
+      if (on) newAudioContext();
+
       wantAwake = on;
       if (!("wakeLock" in navigator)) return;
 
@@ -60,13 +70,28 @@
       }
     });
 
+    // --- Audio ---
 
-    var audioCtx = new AudioContext();
+    var audioCtx = null;
+    var playing = [];
     var buffers = {};
+
+    function newAudioContext() {
+      if (audioCtx) audioCtx.close().catch(() => { });
+      playing = [];
+      audioCtx = new AudioContext();
+      audioCtx.onstatechange = () => console.log("audio:", audioCtx.state);
+      audioCtx.resume().catch(() => { });
+    }
+
+    newAudioContext();
 
     ["starting", "interval-1", "interval-2", "interval-3", "final"].forEach(function (name) {
       fetch("sounds/" + name + ".mp3")
-        .then(r => r.arrayBuffer())
+        .then(r => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.arrayBuffer();
+        })
         .then(data => audioCtx.decodeAudioData(data))
         .then(buf => buffers[name] = buf)
         .catch(err => console.warn("Failed to load sound:", name, err))
@@ -75,7 +100,8 @@
     // Browsers only allow audio after a user gesture, and iOS suspends the
     // context when the app goes to the background, so resume on every tap
     function unlockAudio() {
-      if (audioCtx.state !== "running") audioCtx.resume();
+      if (audioCtx.state === "interrupted" || audioCtx.state === "closed") newAudioContext();
+      if (audioCtx.state !== "running") audioCtx.resume().catch(() => { });
     }
 
     ["click", "touchend", "keydown"].forEach(type => document.addEventListener(type, unlockAudio))
@@ -87,10 +113,15 @@
       app.ports.playBell.subscribe(function (name) {
         var buf = buffers[name];
         if (!buf) {console.warn("Sound not loaded:", name); return;}
-        var gain = audioCtx.createGain();
-        var src = audioCtx.createBufferSource();
+
+        // an interrupted context can often resume without a tap once the interruption ends
+        if (audioCtx.state !== "running") audioCtx.resume().catch(() => { });
+
+        var ctx = audioCtx;
+        var gain = ctx.createGain();
+        var src = ctx.createBufferSource();
         src.buffer = buf;
-        src.connect(gain).connect(audioCtx.destination);
+        src.connect(gain).connect(ctx.destination);
 
         var entry = {src: src, gain: gain};
         playing.push(entry);
