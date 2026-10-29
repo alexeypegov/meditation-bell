@@ -56,7 +56,7 @@
     }
 
     app.ports.keepAwake.subscribe(function (on) {
-      // try to recover broken audio context, iOS can left old one attached to a previous outpot
+      // try to recover broken audio context, in a case iOS left it attached to the previous output
       if (on) newAudioContext();
 
       wantAwake = on;
@@ -75,6 +75,7 @@
     var audioCtx = null;
     var playing = [];
     var buffers = {};
+    var decoder = new OfflineAudioContext(1, 1, 48000); // only decodes audio
 
     function newAudioContext() {
       if (audioCtx) audioCtx.close().catch(() => { });
@@ -84,7 +85,11 @@
       audioCtx.resume().catch(() => { });
     }
 
-    newAudioContext();
+    function releaseAudio() {
+      if (wantAwake || playing.length > 0 || !audioCtx) return;
+      audioCtx.close().catch(() => { });
+      audioCtx = null;
+    }
 
     ["starting", "interval-1", "interval-2", "interval-3", "final"].forEach(function (name) {
       fetch("sounds/" + name + ".mp3")
@@ -92,14 +97,15 @@
           if (!r.ok) throw new Error("HTTP " + r.status);
           return r.arrayBuffer();
         })
-        .then(data => audioCtx.decodeAudioData(data))
+        .then(data => decoder.decodeAudioData(data))
         .then(buf => buffers[name] = buf)
         .catch(err => console.warn("Failed to load sound:", name, err))
     })
 
-    // Browsers only allow audio after a user gesture, and iOS suspends the
-    // context when the app goes to the background, so resume on every tap
+    // Browsers only allow audio after a user gesture, and iOS suspends or
+    // interrupts the context (backgrounding, calls, route changes), so recover on every tap
     function unlockAudio() {
+      if (!audioCtx) return;
       if (audioCtx.state === "interrupted" || audioCtx.state === "closed") newAudioContext();
       if (audioCtx.state !== "running") audioCtx.resume().catch(() => { });
     }
@@ -111,6 +117,8 @@
 
     if (app.ports && app.ports.playBell) {
       app.ports.playBell.subscribe(function (name) {
+        if (!audioCtx) return;
+
         var buf = buffers[name];
         if (!buf) {console.warn("Sound not loaded:", name); return;}
 
@@ -125,13 +133,18 @@
 
         var entry = {src: src, gain: gain};
         playing.push(entry);
-        src.onended = () => playing = playing.filter(e => e !== entry)
+        src.onended = () => {
+          playing = playing.filter(e => e !== entry);
+          releaseAudio();
+        }
         src.start();
       });
     }
 
     if (app.ports && app.ports.stopBells) {
       app.ports.stopBells.subscribe(function () {
+        if (!audioCtx) return;
+
         var t = audioCtx.currentTime;
         playing.forEach(function (e) {
           e.gain.gain.setValueAtTime(e.gain.gain.value, t);
@@ -140,6 +153,7 @@
         });
 
         playing = [];
+        setTimeout(releaseAudio, 400);
       });
     }
 
