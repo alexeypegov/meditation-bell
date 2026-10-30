@@ -67,7 +67,7 @@ type alias TimerState =
     , startedAt : Maybe Time.Posix
     , now : Maybe Time.Posix
     , phase : Phase
-    , rate : IntervalRate
+    , intervals : Bool
     , bells : List Int
     , seed : Random.Seed
     }
@@ -79,16 +79,10 @@ type Bell
     | Final
 
 
-type IntervalRate
-    = NoIntervals
-    | LessOften
-    | MoreOften
-
-
 type alias Configuration =
     { duration : Int -- seconds
     , warmup : Maybe Int -- seconds
-    , rate : IntervalRate
+    , intervals : Bool
     }
 
 
@@ -109,7 +103,7 @@ initialConfig : Configuration
 initialConfig =
     { duration = 900
     , warmup = Just 60
-    , rate = MoreOften
+    , intervals = True
     }
 
 
@@ -122,7 +116,7 @@ freshTimer config =
     , startedAt = Nothing
     , now = Nothing
     , phase = Preparing
-    , rate = config.rate
+    , intervals = config.intervals
     , bells = []
     , seed = Random.initialSeed 0
     }
@@ -177,13 +171,8 @@ advance now model =
 
     else if timer.phase == Preparing && elapsed >= timer.warmup then
         let
-            ( count, seed ) =
-                Random.step (bellCount timer.rate timer.duration) timer.seed
-
             next =
-                planBells count
-                    (timer.warmup + minGap)
-                    { timer | phase = Meditating, seed = seed, now = Just now }
+                planBells { timer | phase = Meditating, now = Just now }
         in
         ( { model | timer = next }
         , Cmd.batch [ ringBell Starting, scheduleBell next elapsed ]
@@ -215,51 +204,62 @@ pauseIfRunning model =
             ( model, Cmd.none )
 
 
-bellCount : IntervalRate -> Int -> Random.Generator Int
-bellCount rate duration =
+bellCount : TimerState -> Random.Generator Int
+bellCount timer =
+    if timer.intervals then
+        let
+            minutes =
+                toFloat timer.duration / 60000
+
+            least =
+                clamp 1 maxBells (round (1.5 * sqrt (minutes / 10)))
+        in
+        Random.int least maxBells
+
+    else
+        Random.constant 0
+
+
+{-| Places `left` bells at random between `start` and `end`, none closer than
+`minGap` to any bell in `taken` (which starts with the start and final bells).
+A bell that can't find room within its tries is dropped.
+-}
+placeNext : Int -> Int -> List Int -> Int -> Int -> Random.Generator (List Int)
+placeNext left tries taken start end =
+    if left <= 0 then
+        Random.constant taken
+
+    else
+        Random.int start end
+            |> Random.andThen
+                (\t ->
+                    if List.all (\b -> abs (t - b) >= minGap) taken then
+                        placeNext (left - 1) bellTries (t :: taken) start end
+
+                    else if tries > 1 then
+                        placeNext left (tries - 1) taken start end
+
+                    else
+                        placeNext (left - 1) bellTries taken start end
+                )
+
+
+planBells : TimerState -> TimerState
+planBells timer =
     let
-        scale =
-            sqrt (toFloat duration / toFloat (10 * 60 * 1000))
+        start =
+            timer.warmup
 
-        between lo hi =
-            Random.int (max 1 (round (lo * scale))) (max 1 (round (hi * scale)))
-    in
-    case rate of
-        NoIntervals ->
-            Random.constant 0
+        end =
+            totalMillis timer
 
-        LessOften ->
-            between 1 2
+        plan =
+            bellCount timer
+                |> Random.andThen (\count -> placeNext count firstTries [ start, end ] start end)
+                |> Random.map (List.filter (\t -> t /= start && t /= end) >> List.sort)
 
-        MoreOften ->
-            between 2 4
-
-
-placeBells : Int -> Int -> Int -> Random.Generator (List Int)
-placeBells count from to =
-    let
-        fits =
-            if to < from then
-                0
-
-            else
-                (to - from) // minGap + 1
-
-        n =
-            min count fits
-
-        slack =
-            to - from - (n - 1) * minGap
-    in
-    Random.list n (Random.int 0 slack)
-        |> Random.map (List.sort >> List.indexedMap (\i t -> from + t + i * minGap))
-
-
-planBells : Int -> Int -> TimerState -> TimerState
-planBells count from timer =
-    let
         ( bells, seed ) =
-            Random.step (placeBells count from (totalMillis timer - endGuard)) timer.seed
+            Random.step plan timer.seed
     in
     { timer | bells = bells, seed = seed }
 
@@ -294,13 +294,12 @@ update msg model =
                     elapsedMillis { base | startedAt = Just now } now
 
                 started =
-                    { base | status = TimerStarted, startedAt = Just now, now = Just now }
-                        |> (if resuming && base.phase == Meditating then
-                                planBells (List.length base.bells) (elapsed + minGap)
-
-                            else
-                                identity
-                           )
+                    { base
+                        | status = TimerStarted
+                        , startedAt = Just now
+                        , now = Just now
+                        , bells = List.filter (\at -> at >= elapsed + minGap) base.bells
+                    }
 
                 wakeUps =
                     [ started.warmup - elapsed, totalMillis started - elapsed ]
@@ -401,9 +400,22 @@ scheduleBell timer elapsed =
             Cmd.none
 
 
-endGuard : Int
-endGuard =
-    60 * 1000
+maxBells : Int
+maxBells =
+    7
+
+
+{-| Tries per bell before it's dropped; the first bell gets many, so a session
+always has at least one interval bell when one can fit.
+-}
+bellTries : Int
+bellTries =
+    3
+
+
+firstTries : Int
+firstTries =
+    100
 
 
 minGap : Int
@@ -559,7 +571,7 @@ timerButton model =
                     ( "Resume", Start )
 
                 TimerFinished ->
-                    ( "Restart", Start )
+                    ( "Start", Start )
     in
     Input.button
         [ Background.color colors.accent
