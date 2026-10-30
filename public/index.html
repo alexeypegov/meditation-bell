@@ -23,7 +23,10 @@
 <body>
   <div id="app"></div>
   <script>
-    var app = Elm.Main.init({node: document.getElementById("app")});
+    var stored = null;
+    try {stored = localStorage.getItem("settings");} catch (e) { }
+
+    var app = Elm.Main.init({node: document.getElementById("app"), flags: stored});
 
     var wakeLock = null;
     var wakeLockPending = false;
@@ -154,6 +157,14 @@
 
         playing = [];
         setTimeout(releaseAudio, 400);
+      });
+    }
+
+    // - Settings
+    if (app.ports && app.ports.saveSettings) {
+      app.ports.saveSettings.subscribe(function (settings) {
+        try {localStorage.setItem("settings", JSON.stringify(settings));}
+        catch (e) {console.warn("Failed to save settings: ", e);}
       });
     }
 

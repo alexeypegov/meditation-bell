@@ -7,6 +7,9 @@ import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
+import Html.Attributes
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 import Process
 import Random
 import Task
@@ -29,11 +32,14 @@ port keepAwake : Bool -> Cmd msg
 port pageHidden : (() -> msg) -> Sub msg
 
 
+port saveSettings : Encode.Value -> Cmd msg
+
+
 
 -- MAIN
 
 
-main : Program () Model Msg
+main : Program (Maybe String) Model Msg
 main =
     Browser.element
         { init = init
@@ -101,8 +107,8 @@ intervalCount =
 
 initialConfig : Configuration
 initialConfig =
-    { duration = 900
-    , warmup = Just 60
+    { duration = 600
+    , warmup = Just 30
     , intervals = True
     }
 
@@ -122,12 +128,81 @@ freshTimer config =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { timer = freshTimer initialConfig
-      , config = initialConfig
+init : Maybe String -> ( Model, Cmd Msg )
+init stored =
+    let
+        config =
+            stored
+                |> Maybe.andThen (Decode.decodeString configDecoder >> Result.toMaybe)
+                |> Maybe.withDefault initialConfig
+    in
+    ( { timer = freshTimer config
+      , config = config
       }
     , Cmd.none
+    )
+
+
+
+-- DECODERS
+
+
+warmupDecoder : Decoder (Maybe Int)
+warmupDecoder =
+    Decode.nullable Decode.int
+        |> Decode.andThen
+            (\warmup ->
+                if List.member warmup warmupDurations then
+                    Decode.succeed warmup
+
+                else
+                    Decode.fail "Unknown warmup"
+            )
+
+
+{-| Missing or invalid fields fall back to `initialConfig`, so adding a setting
+later doesn't throw away the ones already saved.
+-}
+configDecoder : Decoder Configuration
+configDecoder =
+    let
+        field name decoder default =
+            Decode.oneOf [ Decode.field name decoder, Decode.succeed default ]
+    in
+    Decode.map3 Configuration
+        (field "duration" (Decode.map (clamp minDuration maxDuration) Decode.int) initialConfig.duration)
+        (field "warmup" warmupDecoder initialConfig.warmup)
+        (field "intervals" Decode.bool initialConfig.intervals)
+
+
+encodeConfig : Configuration -> Encode.Value
+encodeConfig config =
+    Encode.object
+        [ ( "duration", Encode.int config.duration )
+        , ( "warmup", Maybe.withDefault Encode.null (Maybe.map Encode.int config.warmup) )
+        , ( "intervals", Encode.bool config.intervals )
+        ]
+
+
+minDuration : Int
+minDuration =
+    5 * 60
+
+
+maxDuration : Int
+maxDuration =
+    60 * 60
+
+
+warmupDurations : List (Maybe Int)
+warmupDurations =
+    [ Nothing, Just 30, Just 60, Just 120, Just 180, Just 300 ]
+
+
+setConfig : Configuration -> Model -> ( Model, Cmd Msg )
+setConfig config model =
+    ( { model | config = config, timer = freshTimer config }
+    , saveSettings (encodeConfig config)
     )
 
 
@@ -144,6 +219,8 @@ type Msg
     | Tick Time.Posix
     | VisibilityChanged Visibility
     | PageHidden
+    | ChangeDuration Int
+    | CycleWarmup
 
 
 advance : Time.Posix -> Model -> ( Model, Cmd Msg )
@@ -352,6 +429,28 @@ update msg model =
         PageHidden ->
             pauseIfRunning model
 
+        ChangeDuration step ->
+            if editable timer.status then
+                let
+                    config =
+                        model.config
+                in
+                setConfig { config | duration = clamp minDuration maxDuration (config.duration + step) } model
+
+            else
+                ( model, Cmd.none )
+
+        CycleWarmup ->
+            if editable timer.status then
+                let
+                    config =
+                        model.config
+                in
+                setConfig { config | warmup = nextWarmup config.warmup } model
+
+            else
+                ( model, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
@@ -512,47 +611,68 @@ colors =
     }
 
 
-timerDisplay : Phase -> Model -> Element Msg
-timerDisplay phase model =
+durationStep : Int
+durationStep =
+    5 * 60
+
+
+stepButton : Float -> Maybe Msg -> String -> Element Msg
+stepButton opacity onPress symbol =
+    Input.button
+        [ Element.width (Element.px 44)
+        , Element.height (Element.px 44)
+        , Font.size 32
+        , Font.color colors.inactive
+        , Element.alpha opacity
+        , Element.focused []
+        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+        ]
+        { onPress = onPress
+        , label = el [ centerX, centerY ] (text symbol)
+        }
+
+
+durationControl : Model -> Element Msg
+durationControl model =
     let
-        timer =
-            model.timer
+        config =
+            model.config
 
-        elapsed =
-            case timer.now of
-                Just now ->
-                    elapsedMillis timer now
+        isEditable =
+            editable model.timer.status
 
-                Nothing ->
-                    timer.elapsedBefore
+        step delta symbol =
+            let
+                target =
+                    config.duration + delta
+            in
+            if not isEditable then
+                stepButton 0 Nothing symbol
 
-        fontSize =
-            case phase of
-                Preparing ->
-                    36
+            else if target >= minDuration && target <= maxDuration then
+                stepButton 1 (Just (ChangeDuration delta)) symbol
 
-                Meditating ->
-                    64
+            else
+                stepButton 0.3 Nothing symbol
 
-        remainingTime =
-            remaining phase timer elapsed
+        side =
+            el [ centerY, paddingXY 16 0 ]
 
-        foregroundColor =
-            case phase of
-                Preparing ->
-                    if remainingTime > 0 then
-                        colors.fg
-
-                    else
-                        colors.bg
-
-                Meditating ->
-                    colors.fg
+        left =
+            remaining Meditating model.timer (currentElapsed model.timer)
     in
-    el [ centerX, Font.size fontSize, Font.color foregroundColor, Font.variant Font.tabularNumbers ]
-        (remainingTime
-            |> formatTime
-            |> text
+    el
+        [ centerX
+        , Element.onLeft (side (step (negate durationStep) "-"))
+        , Element.onRight (side (step durationStep "+"))
+        ]
+        (el
+            [ Font.size 64
+            , Font.variant Font.tabularNumbers
+            , Font.center
+            , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
+            ]
+            (text (formatTime left))
         )
 
 
@@ -582,6 +702,112 @@ timerButton model =
         }
 
 
+nextWarmup : Maybe Int -> Maybe Int
+nextWarmup current =
+    let
+        seconds =
+            Maybe.withDefault 0
+    in
+    warmupDurations
+        |> List.filter (\w -> seconds w > seconds current)
+        |> List.head
+        |> Maybe.withDefault Nothing
+
+
+editable : TimerStatus -> Bool
+editable status =
+    status == TimerReady || status == TimerFinished
+
+
+currentElapsed : TimerState -> Int
+currentElapsed timer =
+    case timer.now of
+        Just now ->
+            elapsedMillis timer now
+
+        Nothing ->
+            timer.elapsedBefore
+
+
+warmupControl : Model -> Element Msg
+warmupControl model =
+    let
+        timer =
+            model.timer
+
+        isEditable =
+            editable timer.status
+
+        left =
+            remaining Preparing timer (currentElapsed timer)
+
+        caption =
+            el
+                [ paddingXY 12 0
+                , Font.color colors.inactive
+                , Element.alpha
+                    (if isEditable then
+                        1
+
+                     else
+                        0
+                    )
+                , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+                ]
+                (text "warmup")
+
+        label =
+            if isEditable then
+                case model.config.warmup of
+                    Nothing ->
+                        "Off"
+
+                    Just seconds ->
+                        formatTime (seconds * 1000)
+
+            else
+                formatTime left
+
+        color =
+            if isEditable then
+                colors.inactive
+
+            else if model.config.warmup == Nothing || left <= 0 then
+                colors.bg
+
+            else
+                colors.fg
+
+        opacity =
+            if isEditable then
+                1
+
+            else if model.config.warmup == Nothing then
+                0
+
+            else
+                clamp 0 1 (toFloat left / 5000)
+    in
+    el [ centerX, Element.onLeft caption ]
+        (Input.button
+            [ centerX
+            , Font.size 36
+            , Font.color color
+            , Font.variant Font.tabularNumbers
+            , Element.focused []
+            , Element.alpha opacity
+            ]
+            { onPress =
+                if isEditable then
+                    Just CycleWarmup
+
+                else
+                    Nothing
+            , label = text label
+            }
+        )
+
+
 view : Model -> Html Msg
 view model =
     Element.layout
@@ -591,8 +817,8 @@ view model =
         ]
         (column [ centerX, centerY, spacing 24, padding 16 ]
             [ el [ centerX, Font.size 32, Font.semiBold ] (text "Meditation Timer")
-            , timerDisplay Preparing model
-            , timerDisplay Meditating model
+            , warmupControl model
+            , durationControl model
             , row [ centerX, spacing 16 ]
                 [ timerButton model
                 ]
