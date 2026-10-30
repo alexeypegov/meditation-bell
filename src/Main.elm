@@ -956,7 +956,7 @@ resetButton model =
 
 hideAfter : Int
 hideAfter =
-    10
+    10 * 1000
 
 
 view : Model -> Html Msg
