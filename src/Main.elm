@@ -217,6 +217,7 @@ type Msg
     | Pause
     | PausedAt Time.Posix
     | Reset
+    | Heartbeat Time.Posix
     | Tick Time.Posix
     | VisibilityChanged Visibility
     | PageHidden
@@ -235,14 +236,7 @@ advance now model =
     in
     if elapsed >= totalMillis timer then
         ( { model
-            | timer =
-                { timer
-                    | status = TimerFinished
-                    , phase = Meditating
-                    , elapsedBefore = totalMillis timer
-                    , startedAt = Nothing
-                    , now = Just now
-                }
+            | timer = freshTimer model.config
           }
         , Cmd.batch [ keepAwake False, ringBell Final ]
         )
@@ -253,7 +247,7 @@ advance now model =
                 planBells { timer | phase = Meditating, now = Just now }
         in
         ( { model | timer = next }
-        , Cmd.batch [ ringBell Starting, scheduleBell next elapsed ]
+        , ringBell Starting
         )
 
     else if isDue timer.bells elapsed then
@@ -265,7 +259,7 @@ advance now model =
                 { timer | bells = List.drop 1 timer.bells, seed = seed, now = Just now }
         in
         ( { model | timer = next }
-        , Cmd.batch [ ringBell (Interval sound), scheduleBell next elapsed ]
+        , ringBell (Interval sound)
         )
 
     else
@@ -308,7 +302,8 @@ placeNext left tries taken start end =
         Random.constant taken
 
     else
-        Random.int start end
+        Random.int (start // 1000) (end // 1000)
+            |> Random.map ((*) 1000)
             |> Random.andThen
                 (\t ->
                     if List.all (\b -> abs (t - b) >= minGap) taken then
@@ -379,15 +374,10 @@ update msg model =
                         , bells = List.filter (\at -> at >= elapsed + minGap) base.bells
                     }
 
-                wakeUps =
-                    [ started.warmup - elapsed, totalMillis started - elapsed ]
-                        |> List.filter (\ms -> ms > 0)
-                        |> List.map scheduleTick
-
                 ( advanced, bellCmd ) =
                     advance now { model | timer = started }
             in
-            ( advanced, Cmd.batch (keepAwake True :: bellCmd :: scheduleBell started elapsed :: wakeUps) )
+            ( advanced, Cmd.batch [ keepAwake True, bellCmd, exactTicks elapsed ] )
 
         Pause ->
             pauseIfRunning model
@@ -413,6 +403,17 @@ update msg model =
             ( { model | timer = freshTimer model.config }
             , Cmd.batch [ keepAwake False, stopBells () ]
             )
+
+        Heartbeat now ->
+            if timer.status == TimerStarted then
+                let
+                    ( advanced, cmd ) =
+                        advance now model
+                in
+                ( advanced, Cmd.batch [ cmd, exactTicks (elapsedMillis timer now) ] )
+
+            else
+                ( model, Cmd.none )
 
         Tick now ->
             if timer.status == TimerStarted then
@@ -457,11 +458,11 @@ update msg model =
 -- SUBSCRIPTIONS
 
 
-tick : Model -> Sub Msg
-tick model =
+heartbeat : Model -> Sub Msg
+heartbeat model =
     case model.timer.status of
         TimerStarted ->
-            Time.every 1000 Tick
+            Time.every 1000 Heartbeat
 
         _ ->
             Sub.none
@@ -472,7 +473,7 @@ subscriptions model =
     Sub.batch
         [ Browser.Events.onVisibilityChange VisibilityChanged
         , pageHidden (\_ -> PageHidden)
-        , tick model
+        , heartbeat model
         ]
 
 
@@ -488,16 +489,6 @@ isDue bells elapsed =
 
         [] ->
             False
-
-
-scheduleBell : TimerState -> Int -> Cmd Msg
-scheduleBell timer elapsed =
-    case timer.bells of
-        at :: _ ->
-            scheduleTick (at - elapsed)
-
-        [] ->
-            Cmd.none
 
 
 maxBells : Int
@@ -521,6 +512,24 @@ firstTries =
 minGap : Int
 minGap =
     60 * 1000
+
+
+{-| Exact updates on the next two seconds of the timeline. The heartbeat
+drifts, so it only schedules these; they never schedule anything themselves,
+which keeps one left over from before a pause harmless.
+-}
+exactTicks : Int -> Cmd Msg
+exactTicks elapsed =
+    let
+        toNext =
+            1000 - modBy 1000 elapsed
+
+        at ms =
+            Process.sleep (toFloat (ms + 5))
+                |> Task.andThen (\_ -> Time.now)
+                |> Task.perform Tick
+    in
+    Cmd.batch [ at toNext, at (toNext + 1000) ]
 
 
 bellName : Bell -> String
@@ -564,15 +573,6 @@ remaining phase timer elapsed =
 
         Meditating ->
             clamp 0 timer.duration (totalMillis timer - elapsed)
-
-
-{-| Fires a Tick after `ms`, used to ring bells exactly on time.
--}
-scheduleTick : Int -> Cmd Msg
-scheduleTick ms =
-    Process.sleep (toFloat ms)
-        |> Task.andThen (\_ -> Time.now)
-        |> Task.perform Tick
 
 
 formatTime : Int -> String
@@ -634,6 +634,7 @@ colors =
     , surface = eldritch.shallowDepths
     , fg = eldritch.lighthouseWhite
     , inactive = eldritch.oldOnePurple
+    , disabled = eldritch.murkOverlay
     , accent = eldritch.greatOldOneGreen
     }
 
@@ -678,6 +679,9 @@ durationControl model =
         config =
             model.config
 
+        counting =
+            not isEditable
+
         isEditable =
             editable model.timer.status
 
@@ -700,17 +704,26 @@ durationControl model =
 
         left =
             remaining Meditating model.timer (currentElapsed model.timer)
+
+        color =
+            if counting && model.timer.phase == Preparing then
+                colors.disabled
+
+            else
+                colors.fg
     in
     el
         [ centerX
-        , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
         , Element.onLeft (side (step (negate durationStep) "−"))
         , Element.onRight (side (step durationStep "+"))
         ]
         (el
             [ Font.size 64
             , Font.variant Font.tabularNumbers
+            , Font.color color
             , Font.center
+            , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
+            , Element.htmlAttribute (Html.Attributes.style "transition" "color 0.3s")
             ]
             (timeText model left)
         )
@@ -815,9 +828,13 @@ warmupControl model =
         left =
             remaining Preparing timer (currentElapsed timer)
 
+        baseline =
+            Element.htmlAttribute (Html.Attributes.style "align-self" "baseline")
+
         caption =
             el
-                [ paddingXY 12 0
+                [ Element.alignBottom
+                , paddingXY 12 0
                 , Font.color colors.inactive
                 , Element.alpha
                     (if isEditable then
@@ -831,23 +848,19 @@ warmupControl model =
                 (text "warmup")
 
         label =
-            if isEditable then
-                case model.config.warmup of
-                    Nothing ->
-                        text "Off"
+            case ( model.config.warmup, isEditable ) of
+                ( Nothing, _ ) ->
+                    text "Off"
 
-                    Just seconds ->
-                        timeText model (seconds * 1000)
+                ( Just seconds, True ) ->
+                    timeText model (seconds * 1000)
 
-            else
-                timeText model left
+                ( Just _, False ) ->
+                    timeText model left
 
         color =
             if isEditable then
                 colors.inactive
-
-            else if model.config.warmup == Nothing || left <= 0 then
-                colors.bg
 
             else
                 colors.fg
@@ -856,11 +869,11 @@ warmupControl model =
             if isEditable then
                 1
 
-            else if model.config.warmup == Nothing then
+            else if left <= 1000 then
                 0
 
             else
-                clamp 0 1 (toFloat left / 5000)
+                0.4 + 0.6 * clamp 0 1 (toFloat (left - 1000) / 5000)
 
         buttonStyle =
             if isEditable then
@@ -874,29 +887,40 @@ warmupControl model =
                 , Border.color transparent
                 ]
     in
-    el [ centerX, Element.onLeft caption ]
-        (Input.button
-            ([ centerX
-             , paddingXY 20 8
-             , Border.width 1
-             , Border.rounded 12
-             , Font.size 36
-             , Font.color color
-             , Font.variant Font.tabularNumbers
-             , Element.focused []
-             , Element.alpha opacity
-             , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
-             ]
-                ++ buttonStyle
-            )
-            { onPress =
-                if isEditable then
-                    Just CycleWarmup
+    el [ centerX ]
+        (row [ Element.htmlAttribute (Html.Attributes.style "align-items" "baseline") ]
+            [ el [ baseline ] caption
+            , el [ baseline ]
+                (Input.button
+                    ([ centerX
+                     , paddingXY 20 8
+                     , Border.width 1
+                     , Border.rounded 12
+                     , Font.size 36
+                     , Font.color color
+                     , Font.variant Font.tabularNumbers
+                     , Element.focused []
+                     , Element.alpha opacity
+                     , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
+                     ]
+                        ++ buttonStyle
+                    )
+                    { onPress =
+                        if isEditable then
+                            Just CycleWarmup
 
-                else
-                    Nothing
-            , label = label
-            }
+                        else
+                            Nothing
+                    , label = label
+                    }
+                )
+            , el
+                [ baseline
+                , Element.alpha 0
+                , Element.htmlAttribute (Html.Attributes.attribute "aria-hidden" "true")
+                ]
+                caption
+            ]
         )
 
 

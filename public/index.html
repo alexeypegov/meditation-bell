@@ -11,7 +11,11 @@
   <meta name="theme-color" content="#212337">
   <meta name="color-scheme" content="dark">
   <!-- paints the background before style.css loads, so there's no white flash -->
-  <style>html { background: #212337; }</style>
+  <style>
+    html {
+      background: #212337;
+    }
+  </style>
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -86,9 +90,10 @@
     function newAudioContext() {
       if (audioCtx) audioCtx.close().catch(() => { });
       playing = [];
-      audioCtx = new AudioContext();
-      audioCtx.onstatechange = () => console.log("audio:", audioCtx.state);
-      audioCtx.resume().catch(() => { });
+      var ctx = new AudioContext();
+      ctx.onstatechange = () => console.log("audio:", ctx.state);
+      ctx.resume().catch(() => { });
+      audioCtx = ctx;
     }
 
     function releaseAudio() {

@@ -1,14 +1,28 @@
 /* Layout and styling live in elm-ui; this only covers what it can't reach. */
 
-html, body {
+html,
+body {
   margin: 0;
   height: 100%;
   background: #212337;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+*,
+*::before,
+*::after {
+  -webkit-user-select: none;
   user-select: none;
 }
 
-#app, body > div {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-           env(safe-area-inset-bottom) env(safe-area-inset-left);
+::selection {
+  background: transparent;
+}
+
+#app,
+body>div {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
