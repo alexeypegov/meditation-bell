@@ -4,6 +4,7 @@ import Browser
 import Browser.Events exposing (Visibility(..))
 import Element exposing (Element, centerX, centerY, column, el, padding, paddingXY, rgb255, row, spacing, text)
 import Element.Background as Background
+import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html exposing (Html)
@@ -580,11 +581,8 @@ formatTime ms =
         totalSeconds =
             ceiling (toFloat ms / 1000)
 
-        hours =
-            totalSeconds // 3600
-
         minutes =
-            modBy 60 (totalSeconds // 60)
+            totalSeconds // 60
 
         seconds =
             modBy 60 totalSeconds
@@ -592,22 +590,51 @@ formatTime ms =
         pad2 n =
             String.padLeft 2 '0' (String.fromInt n)
     in
-    if hours > 0 then
-        String.fromInt hours ++ ":" ++ pad2 minutes ++ ":" ++ pad2 seconds
+    String.fromInt minutes ++ ":" ++ pad2 seconds
+
+
+formatCountdown : Int -> String
+formatCountdown ms =
+    let
+        secondsLeft =
+            ceiling (toFloat ms / 1000)
+    in
+    if secondsLeft < 60 then
+        String.fromInt secondsLeft
 
     else
-        String.fromInt minutes ++ ":" ++ pad2 seconds
+        formatTime ms
 
 
 
 -- VIEW
 
 
+{-| Eldritch "Cthulhu" palette, <https://github.com/eldritch-theme/eldritch>
+-}
+eldritch =
+    { sunkenDepths = rgb255 0x21 0x23 0x37
+    , shallowDepths = rgb255 0x32 0x34 0x49
+    , tidalSurface = rgb255 0x45 0x47 0x59
+    , murkOverlay = rgb255 0x5B 0x5C 0x66
+    , lighthouseWhite = rgb255 0xEB 0xFA 0xFA
+    , oldOnePurple = rgb255 0x70 0x81 0xD0
+    , wateryTombBlue = rgb255 0x04 0xD1 0xF9
+    , greatOldOneGreen = rgb255 0x37 0xF4 0x99
+    , dreamingOrange = rgb255 0xF7 0xC6 0x7F
+    , pustulePink = rgb255 0xF2 0x65 0xB5
+    , lovecraftPurple = rgb255 0xA4 0x8C 0xF2
+    , rlyehRed = rgb255 0xF1 0x6C 0x75
+    , goldOfYuggoth = rgb255 0xF1 0xFC 0x79
+    }
+
+
 colors =
-    { bg = rgb255 0x1E 0x1E 0x2E
-    , fg = rgb255 0xCD 0xD6 0xF4
-    , inactive = rgb255 0x8B 0x8B 0x8B
-    , accent = rgb255 0xF3 0x8B 0xA8
+    { bg = eldritch.sunkenDepths
+    , surface = eldritch.shallowDepths
+    , fg = eldritch.lighthouseWhite
+    , inactive = eldritch.oldOnePurple
+    , accent = eldritch.greatOldOneGreen
     }
 
 
@@ -618,15 +645,28 @@ durationStep =
 
 stepButton : Float -> Maybe Msg -> String -> Element Msg
 stepButton opacity onPress symbol =
+    let
+        pressed =
+            case onPress of
+                Just _ ->
+                    [ Element.mouseDown [ Background.color eldritch.tidalSurface ] ]
+
+                Nothing ->
+                    []
+    in
     Input.button
-        [ Element.width (Element.px 44)
-        , Element.height (Element.px 44)
-        , Font.size 32
-        , Font.color colors.inactive
-        , Element.alpha opacity
-        , Element.focused []
-        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
-        ]
+        ([ Element.width (Element.px 44)
+         , Element.height (Element.px 44)
+         , Border.rounded 22
+         , Background.color colors.surface
+         , Font.size 28
+         , Font.color colors.inactive
+         , Element.alpha opacity
+         , Element.focused []
+         , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+         ]
+            ++ pressed
+        )
         { onPress = onPress
         , label = el [ centerX, centerY ] (text symbol)
         }
@@ -663,22 +703,25 @@ durationControl model =
     in
     el
         [ centerX
-        , Element.onLeft (side (step (negate durationStep) "-"))
+        , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
+        , Element.onLeft (side (step (negate durationStep) "−"))
         , Element.onRight (side (step durationStep "+"))
         ]
         (el
             [ Font.size 64
             , Font.variant Font.tabularNumbers
             , Font.center
-            , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
             ]
-            (text (formatTime left))
+            (timeText model left)
         )
 
 
 timerButton : Model -> Element Msg
 timerButton model =
     let
+        running =
+            model.timer.status == TimerStarted
+
         ( label, msg ) =
             case model.timer.status of
                 TimerReady ->
@@ -694,8 +737,23 @@ timerButton model =
                     ( "Start", Start )
     in
     Input.button
-        [ Background.color colors.accent
-        , paddingXY 24 12
+        [ paddingXY 24 12
+        , Background.color
+            (if running then
+                Element.rgba 0 0 0 0
+
+             else
+                colors.surface
+            )
+        , Font.color
+            (if running then
+                colors.inactive
+
+             else
+                colors.accent
+            )
+        , Element.htmlAttribute (Html.Attributes.style "transition" "background-color 0.3s, color 0.3s")
+        , Element.focused []
         ]
         { onPress = Just msg
         , label = text label
@@ -729,9 +787,25 @@ currentElapsed timer =
             timer.elapsedBefore
 
 
+timeText : Model -> Int -> Element Msg
+timeText model ms =
+    let
+        formatted =
+            if editable model.timer.status then
+                formatTime ms
+
+            else
+                formatCountdown ms
+    in
+    text formatted
+
+
 warmupControl : Model -> Element Msg
 warmupControl model =
     let
+        transparent =
+            Element.rgba 0 0 0 0
+
         timer =
             model.timer
 
@@ -760,13 +834,13 @@ warmupControl model =
             if isEditable then
                 case model.config.warmup of
                     Nothing ->
-                        "Off"
+                        text "Off"
 
                     Just seconds ->
-                        formatTime (seconds * 1000)
+                        timeText model (seconds * 1000)
 
             else
-                formatTime left
+                timeText model left
 
         color =
             if isEditable then
@@ -787,40 +861,122 @@ warmupControl model =
 
             else
                 clamp 0 1 (toFloat left / 5000)
+
+        buttonStyle =
+            if isEditable then
+                [ Background.color colors.surface
+                , Border.color eldritch.tidalSurface
+                , Element.mouseDown [ Background.color eldritch.tidalSurface ]
+                ]
+
+            else
+                [ Background.color transparent
+                , Border.color transparent
+                ]
     in
     el [ centerX, Element.onLeft caption ]
         (Input.button
-            [ centerX
-            , Font.size 36
-            , Font.color color
-            , Font.variant Font.tabularNumbers
-            , Element.focused []
-            , Element.alpha opacity
-            ]
+            ([ centerX
+             , paddingXY 20 8
+             , Border.width 1
+             , Border.rounded 12
+             , Font.size 36
+             , Font.color color
+             , Font.variant Font.tabularNumbers
+             , Element.focused []
+             , Element.alpha opacity
+             , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
+             ]
+                ++ buttonStyle
+            )
             { onPress =
                 if isEditable then
                     Just CycleWarmup
 
                 else
                     Nothing
-            , label = text label
+            , label = label
             }
         )
 
 
+resetButton : Model -> Element Msg
+resetButton model =
+    let
+        visible =
+            model.timer.status == TimerPaused
+    in
+    Input.button
+        [ centerX
+        , paddingXY 24 12
+        , Font.color colors.inactive
+        , Element.alpha
+            (if visible then
+                1
+
+             else
+                0
+            )
+        , Element.focused []
+        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+        ]
+        { onPress =
+            if visible then
+                Just Reset
+
+            else
+                Nothing
+        , label = text "Reset"
+        }
+
+
+hideAfter : Int
+hideAfter =
+    10
+
+
 view : Model -> Html Msg
 view model =
+    let
+        timer =
+            model.timer
+
+        sinceStart =
+            case ( timer.startedAt, timer.now ) of
+                ( Just started, Just now ) ->
+                    Time.posixToMillis now - Time.posixToMillis started
+
+                _ ->
+                    0
+
+        visible =
+            timer.status /= TimerStarted || sinceStart < hideAfter
+    in
     Element.layout
         [ Background.color colors.bg
         , Font.color colors.fg
         , Font.family [ Font.typeface "system-ui", Font.sansSerif ]
         ]
         (column [ centerX, centerY, spacing 24, padding 16 ]
-            [ el [ centerX, Font.size 32, Font.semiBold ] (text "Meditation Timer")
+            [ el
+                [ centerX
+                , Font.size 32
+                , Font.semiBold
+                , Element.alpha
+                    (if visible then
+                        1
+
+                     else
+                        0
+                    )
+                , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s")
+                ]
+                (text "Meditation Timer")
             , warmupControl model
             , durationControl model
             , row [ centerX, spacing 16 ]
                 [ timerButton model
                 ]
+            , resetButton model
             ]
         )

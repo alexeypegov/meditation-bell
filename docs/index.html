@@ -8,7 +8,10 @@
 
   <!-- PWA / home screen install -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#1e1e2e">
+  <meta name="theme-color" content="#212337">
+  <meta name="color-scheme" content="dark">
+  <!-- paints the background before style.css loads, so there's no white flash -->
+  <style>html { background: #212337; }</style>
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,7 +26,10 @@
 <body>
   <div id="app"></div>
   <script>
-    var app = Elm.Main.init({node: document.getElementById("app")});
+    var stored = null;
+    try {stored = localStorage.getItem("settings");} catch (e) { }
+
+    var app = Elm.Main.init({node: document.getElementById("app"), flags: stored});
 
     var wakeLock = null;
     var wakeLockPending = false;
@@ -154,6 +160,14 @@
 
         playing = [];
         setTimeout(releaseAudio, 400);
+      });
+    }
+
+    // - Settings
+    if (app.ports && app.ports.saveSettings) {
+      app.ports.saveSettings.subscribe(function (settings) {
+        try {localStorage.setItem("settings", JSON.stringify(settings));}
+        catch (e) {console.warn("Failed to save settings: ", e);}
       });
     }
 
