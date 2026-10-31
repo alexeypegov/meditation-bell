@@ -2,7 +2,7 @@ port module Main exposing (main)
 
 import Browser
 import Browser.Events exposing (Visibility(..))
-import Element exposing (Element, centerX, centerY, column, el, padding, paddingXY, rgb255, row, spacing, text)
+import Element exposing (Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, row, spacing, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -88,7 +88,7 @@ type Bell
 
 type alias Configuration =
     { duration : Int -- seconds
-    , warmup : Maybe Int -- seconds
+    , warmup : Int -- seconds
     , intervals : Bool
     }
 
@@ -109,7 +109,7 @@ intervalCount =
 initialConfig : Configuration
 initialConfig =
     { duration = 600
-    , warmup = Just 30
+    , warmup = 30
     , intervals = True
     }
 
@@ -117,7 +117,7 @@ initialConfig =
 freshTimer : Configuration -> TimerState
 freshTimer config =
     { status = TimerReady
-    , warmup = Maybe.withDefault 0 config.warmup * 1000
+    , warmup = config.warmup * 1000
     , duration = config.duration * 1000
     , elapsedBefore = 0
     , startedAt = Nothing
@@ -148,9 +148,9 @@ init stored =
 -- DECODERS
 
 
-warmupDecoder : Decoder (Maybe Int)
+warmupDecoder : Decoder Int
 warmupDecoder =
-    Decode.nullable Decode.int
+    Decode.int
         |> Decode.andThen
             (\warmup ->
                 if List.member warmup warmupDurations then
@@ -180,7 +180,7 @@ encodeConfig : Configuration -> Encode.Value
 encodeConfig config =
     Encode.object
         [ ( "duration", Encode.int config.duration )
-        , ( "warmup", Maybe.withDefault Encode.null (Maybe.map Encode.int config.warmup) )
+        , ( "warmup", Encode.int config.warmup )
         , ( "intervals", Encode.bool config.intervals )
         ]
 
@@ -195,9 +195,9 @@ maxDuration =
     60 * 60
 
 
-warmupDurations : List (Maybe Int)
+warmupDurations : List Int
 warmupDurations =
-    [ Nothing, Just 30, Just 60, Just 120, Just 180, Just 300 ]
+    [ 0, 30, 60, 120, 180, 300 ]
 
 
 setConfig : Configuration -> Model -> ( Model, Cmd Msg )
@@ -718,7 +718,7 @@ durationControl model =
         , Element.onRight (side (step durationStep "+"))
         ]
         (el
-            [ Font.size 64
+            [ Font.size 72
             , Font.variant Font.tabularNumbers
             , Font.color color
             , Font.center
@@ -750,7 +750,7 @@ timerButton model =
                     ( "Start", Start )
     in
     Input.button
-        [ paddingXY 24 12
+        [ paddingXY 36 16
         , Background.color
             (if running then
                 Element.rgba 0 0 0 0
@@ -765,6 +765,8 @@ timerButton model =
              else
                 colors.accent
             )
+        , Font.size 32
+        , Border.rounded 22
         , Element.htmlAttribute (Html.Attributes.style "transition" "background-color 0.3s, color 0.3s")
         , Element.focused []
         ]
@@ -773,16 +775,12 @@ timerButton model =
         }
 
 
-nextWarmup : Maybe Int -> Maybe Int
+nextWarmup : Int -> Int
 nextWarmup current =
-    let
-        seconds =
-            Maybe.withDefault 0
-    in
     warmupDurations
-        |> List.filter (\w -> seconds w > seconds current)
+        |> List.filter (\w -> w > current)
         |> List.head
-        |> Maybe.withDefault Nothing
+        |> Maybe.withDefault 0
 
 
 editable : TimerStatus -> Bool
@@ -828,35 +826,15 @@ warmupControl model =
         left =
             remaining Preparing timer (currentElapsed timer)
 
-        baseline =
-            Element.htmlAttribute (Html.Attributes.style "align-self" "baseline")
-
-        caption =
-            el
-                [ Element.alignBottom
-                , paddingXY 12 0
-                , Font.color colors.inactive
-                , Element.alpha
-                    (if isEditable then
-                        1
-
-                     else
-                        0
-                    )
-                , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
-                ]
-                (text "warmup")
-
         label =
-            case ( model.config.warmup, isEditable ) of
-                ( Nothing, _ ) ->
-                    text "Off"
+            if model.config.warmup == 0 then
+                text (formatTime 0)
 
-                ( Just seconds, True ) ->
-                    timeText model (seconds * 1000)
+            else if isEditable then
+                timeText model (model.config.warmup * 1000)
 
-                ( Just _, False ) ->
-                    timeText model left
+            else
+                timeText model left
 
         color =
             if isEditable then
@@ -888,39 +866,28 @@ warmupControl model =
                 ]
     in
     el [ centerX ]
-        (row [ Element.htmlAttribute (Html.Attributes.style "align-items" "baseline") ]
-            [ el [ baseline ] caption
-            , el [ baseline ]
-                (Input.button
-                    ([ centerX
-                     , paddingXY 20 8
-                     , Border.width 1
-                     , Border.rounded 12
-                     , Font.size 36
-                     , Font.color color
-                     , Font.variant Font.tabularNumbers
-                     , Element.focused []
-                     , Element.alpha opacity
-                     , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
-                     ]
-                        ++ buttonStyle
-                    )
-                    { onPress =
-                        if isEditable then
-                            Just CycleWarmup
+        (Input.button
+            ([ centerX
+             , paddingXY 20 8
+             , Border.width 1
+             , Border.rounded 12
+             , Font.size 48
+             , Font.color color
+             , Font.variant Font.tabularNumbers
+             , Element.focused []
+             , Element.alpha opacity
+             , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
+             ]
+                ++ buttonStyle
+            )
+            { onPress =
+                if isEditable then
+                    Just CycleWarmup
 
-                        else
-                            Nothing
-                    , label = label
-                    }
-                )
-            , el
-                [ baseline
-                , Element.alpha 0
-                , Element.htmlAttribute (Html.Attributes.attribute "aria-hidden" "true")
-                ]
-                caption
-            ]
+                else
+                    Nothing
+            , label = label
+            }
         )
 
 
@@ -959,8 +926,8 @@ hideAfter =
     10 * 1000
 
 
-view : Model -> Html Msg
-view model =
+title : Model -> Element Msg
+title model =
     let
         timer =
             model.timer
@@ -973,34 +940,60 @@ view model =
                 _ ->
                     0
 
-        visible =
-            timer.status /= TimerStarted || sinceStart < hideAfter
+        opacity =
+            if model.timer.status /= TimerStarted || sinceStart < hideAfter then
+                1
+
+            else
+                0
     in
+    el
+        [ centerX
+        , Font.size 32
+        , Font.semiBold
+        , Element.alpha opacity
+        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s")
+        ]
+        (text "Meditation Timer")
+
+
+center : Model -> Element Msg
+center model =
+    column
+        [ centerX
+        , spacing 24
+        , padding 16
+        ]
+        [ warmupControl model
+        , durationControl model
+        ]
+
+
+footer : Model -> Element Msg
+footer model =
+    column
+        [ centerX
+        , spacing 16
+        ]
+        [ timerButton model
+        , resetButton model
+        ]
+
+
+view : Model -> Html Msg
+view model =
     Element.layout
         [ Background.color colors.bg
         , Font.color colors.fg
         , Font.family [ Font.typeface "system-ui", Font.sansSerif ]
+        , paddingXY 0 32
         ]
-        (column [ centerX, centerY, spacing 24, padding 16 ]
-            [ el
-                [ centerX
-                , Font.size 32
-                , Font.semiBold
-                , Element.alpha
-                    (if visible then
-                        1
-
-                     else
-                        0
-                    )
-                , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s")
-                ]
-                (text "Meditation Timer")
-            , warmupControl model
-            , durationControl model
-            , row [ centerX, spacing 16 ]
-                [ timerButton model
-                ]
-            , resetButton model
+        (column
+            [ Element.width Element.fill
+            , Element.height Element.fill
+            ]
+            [ el [ centerX, alignTop ] (title model)
+            , el [ centerX, centerY ] (center model)
+            , el [ centerX, alignBottom ] (footer model)
             ]
         )
