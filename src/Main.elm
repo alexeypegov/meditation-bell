@@ -2,7 +2,7 @@ port module Main exposing (main)
 
 import Browser
 import Browser.Events exposing (Visibility(..))
-import Element exposing (Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, row, spacing, text)
+import Element exposing (Attribute, Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, spacing, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -664,7 +664,7 @@ stepButton opacity onPress symbol =
          , Font.color colors.inactive
          , Element.alpha opacity
          , Element.focused []
-         , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+         , style "transition" "opacity 0.3s"
          ]
             ++ pressed
         )
@@ -722,8 +722,8 @@ durationControl model =
             , Font.variant Font.tabularNumbers
             , Font.color color
             , Font.center
-            , Element.htmlAttribute (Html.Attributes.style "min-width" "5ch")
-            , Element.htmlAttribute (Html.Attributes.style "transition" "color 0.3s")
+            , style "min-width" "5ch"
+            , style "transition" "color 0.3s"
             ]
             (timeText model left)
         )
@@ -767,7 +767,7 @@ timerButton model =
             )
         , Font.size 32
         , Border.rounded 22
-        , Element.htmlAttribute (Html.Attributes.style "transition" "background-color 0.3s, color 0.3s")
+        , style "transition" "background-color 0.3s, color 0.3s"
         , Element.focused []
         ]
         { onPress = Just msg
@@ -876,7 +876,7 @@ warmupControl model =
              , Font.variant Font.tabularNumbers
              , Element.focused []
              , Element.alpha opacity
-             , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s linear")
+             , style "transition" "opacity 1s linear"
              ]
                 ++ buttonStyle
             )
@@ -909,7 +909,7 @@ resetButton model =
                 0
             )
         , Element.focused []
-        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 0.3s")
+        , style "transition" "opacity 0.3s"
         ]
         { onPress =
             if visible then
@@ -952,7 +952,7 @@ title model =
         , Font.size 32
         , Font.semiBold
         , Element.alpha opacity
-        , Element.htmlAttribute (Html.Attributes.style "transition" "opacity 1s")
+        , style "transition" "opacity 1s"
         ]
         (text "Meditation Timer")
 
@@ -980,17 +980,25 @@ footer model =
         ]
 
 
+style : String -> String -> Attribute Msg
+style name =
+    Element.htmlAttribute << Html.Attributes.style name
+
+
 view : Model -> Html Msg
 view model =
     Element.layout
         [ Background.color colors.bg
         , Font.color colors.fg
         , Font.family [ Font.typeface "system-ui", Font.sansSerif ]
-        , paddingXY 0 32
         ]
         (column
             [ Element.width Element.fill
             , Element.height Element.fill
+            , style "padding-top" "calc(env(safe-area-inset-top) + 32px)"
+            , style "padding-bottom" "calc(env(safe-area-inset-bottom) + 32px)"
+            , style "padding-left" "env(safe-area-inset-left)"
+            , style "padding-right" "env(safe-area-inset-right)"
             ]
             [ el [ centerX, alignTop ] (title model)
             , el [ centerX, centerY ] (center model)

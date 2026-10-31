@@ -10822,6 +10822,23 @@ var $mdgriffith$elm_ui$Element$Background$color = function (clr) {
 			'background-color',
 			clr));
 };
+var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var $mdgriffith$elm_ui$Internal$Model$Attr = function (a) {
+	return {$: 1, a: a};
+};
+var $mdgriffith$elm_ui$Element$htmlAttribute = $mdgriffith$elm_ui$Internal$Model$Attr;
+var $author$project$Main$style = function (name) {
+	return A2(
+		$elm$core$Basics$composeL,
+		$mdgriffith$elm_ui$Element$htmlAttribute,
+		$elm$html$Html$Attributes$style(name));
+};
 var $mdgriffith$elm_ui$Internal$Model$FontSize = function (a) {
 	return {$: 2, a: a};
 };
@@ -10859,8 +10876,6 @@ var $mdgriffith$elm_ui$Element$alpha = function (o) {
 			'transparency-' + $mdgriffith$elm_ui$Internal$Model$floatClass(transparency),
 			transparency));
 };
-var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
-var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $mdgriffith$elm_ui$Internal$Model$AlignX = function (a) {
 	return {$: 6, a: a};
 };
@@ -10874,10 +10889,6 @@ var $mdgriffith$elm_ui$Internal$Flag$fontWeight = $mdgriffith$elm_ui$Internal$Fl
 var $mdgriffith$elm_ui$Element$Font$semiBold = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontWeight, $mdgriffith$elm_ui$Internal$Style$classes.ds);
 var $author$project$Main$hideAfter = 10 * 1000;
 var $author$project$Main$TimerStarted = 1;
-var $mdgriffith$elm_ui$Internal$Model$Attr = function (a) {
-	return {$: 1, a: a};
-};
-var $mdgriffith$elm_ui$Element$htmlAttribute = $mdgriffith$elm_ui$Internal$Model$Attr;
 var $elm$time$Time$posixToMillis = function (_v0) {
 	var millis = _v0;
 	return millis;
@@ -10903,8 +10914,7 @@ var $author$project$Main$title = function (model) {
 				$mdgriffith$elm_ui$Element$Font$size(32),
 				$mdgriffith$elm_ui$Element$Font$semiBold,
 				$mdgriffith$elm_ui$Element$alpha(opacity),
-				$mdgriffith$elm_ui$Element$htmlAttribute(
-				A2($elm$html$Html$Attributes$style, 'transition', 'opacity 1s'))
+				A2($author$project$Main$style, 'transition', 'opacity 1s')
 			]),
 		$mdgriffith$elm_ui$Element$text('Meditation Timer'));
 };
@@ -11021,11 +11031,6 @@ var $elm$html$Html$Events$onClick = function (msg) {
 		'click',
 		$elm$json$Json$Decode$succeed(msg));
 };
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
 var $mdgriffith$elm_ui$Element$Events$onClick = A2($elm$core$Basics$composeL, $mdgriffith$elm_ui$Internal$Model$Attr, $elm$html$Html$Events$onClick);
 var $mdgriffith$elm_ui$Internal$Flag$cursor = $mdgriffith$elm_ui$Internal$Flag$flag(21);
 var $mdgriffith$elm_ui$Element$pointer = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$cursor, $mdgriffith$elm_ui$Internal$Style$classes.dt);
@@ -11532,8 +11537,7 @@ var $author$project$Main$warmupControl = function (model) {
 						$mdgriffith$elm_ui$Element$Font$variant($mdgriffith$elm_ui$Element$Font$tabularNumbers),
 						$mdgriffith$elm_ui$Element$focused(_List_Nil),
 						$mdgriffith$elm_ui$Element$alpha(opacity),
-						$mdgriffith$elm_ui$Element$htmlAttribute(
-						A2($elm$html$Html$Attributes$style, 'transition', 'opacity 1s linear'))
+						A2($author$project$Main$style, 'transition', 'opacity 1s linear')
 					]),
 				buttonStyle),
 			{
@@ -11597,8 +11601,7 @@ var $author$project$Main$stepButton = F3(
 						$mdgriffith$elm_ui$Element$Font$color($author$project$Main$colors.ap),
 						$mdgriffith$elm_ui$Element$alpha(opacity),
 						$mdgriffith$elm_ui$Element$focused(_List_Nil),
-						$mdgriffith$elm_ui$Element$htmlAttribute(
-						A2($elm$html$Html$Attributes$style, 'transition', 'opacity 0.3s'))
+						A2($author$project$Main$style, 'transition', 'opacity 0.3s')
 					]),
 				pressed),
 			{
@@ -11660,10 +11663,8 @@ var $author$project$Main$durationControl = function (model) {
 					$mdgriffith$elm_ui$Element$Font$variant($mdgriffith$elm_ui$Element$Font$tabularNumbers),
 					$mdgriffith$elm_ui$Element$Font$color(color),
 					$mdgriffith$elm_ui$Element$Font$center,
-					$mdgriffith$elm_ui$Element$htmlAttribute(
-					A2($elm$html$Html$Attributes$style, 'min-width', '5ch')),
-					$mdgriffith$elm_ui$Element$htmlAttribute(
-					A2($elm$html$Html$Attributes$style, 'transition', 'color 0.3s'))
+					A2($author$project$Main$style, 'min-width', '5ch'),
+					A2($author$project$Main$style, 'transition', 'color 0.3s')
 				]),
 			A2($author$project$Main$timeText, model, left)));
 };
@@ -11749,8 +11750,7 @@ var $author$project$Main$resetButton = function (model) {
 				$mdgriffith$elm_ui$Element$alpha(
 				visible ? 1 : 0),
 				$mdgriffith$elm_ui$Element$focused(_List_Nil),
-				$mdgriffith$elm_ui$Element$htmlAttribute(
-				A2($elm$html$Html$Attributes$style, 'transition', 'opacity 0.3s'))
+				A2($author$project$Main$style, 'transition', 'opacity 0.3s')
 			]),
 		{
 			au: $mdgriffith$elm_ui$Element$text('Reset'),
@@ -11787,8 +11787,7 @@ var $author$project$Main$timerButton = function (model) {
 				running ? $author$project$Main$colors.ap : $author$project$Main$colors.bs),
 				$mdgriffith$elm_ui$Element$Font$size(32),
 				$mdgriffith$elm_ui$Element$Border$rounded(22),
-				$mdgriffith$elm_ui$Element$htmlAttribute(
-				A2($elm$html$Html$Attributes$style, 'transition', 'background-color 0.3s, color 0.3s')),
+				A2($author$project$Main$style, 'transition', 'background-color 0.3s, color 0.3s'),
 				$mdgriffith$elm_ui$Element$focused(_List_Nil)
 			]),
 		{
@@ -12036,15 +12035,18 @@ var $author$project$Main$view = function (model) {
 					[
 						$mdgriffith$elm_ui$Element$Font$typeface('system-ui'),
 						$mdgriffith$elm_ui$Element$Font$sansSerif
-					])),
-				A2($mdgriffith$elm_ui$Element$paddingXY, 0, 32)
+					]))
 			]),
 		A2(
 			$mdgriffith$elm_ui$Element$column,
 			_List_fromArray(
 				[
 					$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
+					$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+					A2($author$project$Main$style, 'padding-top', 'calc(env(safe-area-inset-top) + 32px)'),
+					A2($author$project$Main$style, 'padding-bottom', 'calc(env(safe-area-inset-bottom) + 32px)'),
+					A2($author$project$Main$style, 'padding-left', 'env(safe-area-inset-left)'),
+					A2($author$project$Main$style, 'padding-right', 'env(safe-area-inset-right)')
 				]),
 			_List_fromArray(
 				[

@@ -1,5 +1,5 @@
 // Set by `task build` to a hash of the build, so a changed release invalidates the old cache.
-const CACHE = "timer-e1dab189";
+const CACHE = "timer-59fca507";
 
 const ASSETS = [
   "./",
