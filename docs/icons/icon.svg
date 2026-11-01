@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <rect width="512" height="512" fill="#212337"/>
   <!-- ripple: ring centres at λ and 2λ, widths w and 2w (λ ≈ 82, w = λ/3)
-       colours: Eldritch palette, fading outwards (Lighthouse White → Murk Overlay → Shallow Depths) -->
-  <circle cx="256" cy="256" r="192" fill="#323449"/>  <!-- outer ring: 137–192 -->
+       colours: OKLab blends from the background towards the dot, fading outwards (65%, 40%) -->
+  <circle cx="256" cy="256" r="192" fill="#6A7180"/>  <!-- outer ring: 137–192 -->
   <circle cx="256" cy="256" r="137" fill="#212337"/>
-  <circle cx="256" cy="256" r="96"  fill="#5B5C66"/>  <!-- middle ring: 69–96 -->
+  <circle cx="256" cy="256" r="96"  fill="#9DA8B1"/>  <!-- middle ring: 69–96 -->
   <circle cx="256" cy="256" r="69"  fill="#212337"/>
   <circle cx="256" cy="256" r="18"  fill="#EBFAFA"/>  <!-- dot -->
 </svg>

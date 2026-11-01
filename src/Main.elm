@@ -1,7 +1,7 @@
 port module Main exposing (main)
 
 import Browser
-import Element exposing (Attribute, Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, spacing, text)
+import Element exposing (Attribute, Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, row, spacing, spacingXY, text)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -12,6 +12,8 @@ import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Process
 import Random
+import Svg
+import Svg.Attributes as SA
 import Task
 import Time
 
@@ -653,13 +655,96 @@ colors =
     }
 
 
+icon : Bool -> List (Svg.Svg msg) -> Element msg
+icon filled shapes =
+    let
+        paint =
+            if filled then
+                [ SA.fill "currentColor" ]
+
+            else
+                [ SA.fill "none", SA.stroke "currentColor", SA.strokeWidth "1.4", SA.strokeLinejoin "round" ]
+    in
+    Element.html
+        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "26", SA.height "26" ]
+            [ Svg.g paint shapes ]
+        )
+
+
+bellIcon : Bool -> Element msg
+bellIcon filled =
+    icon filled
+        [ Svg.path [ SA.d "M10.3 3.7V3.2a1.7 1.7 0 0 1 3.4 0v.5z" ] []
+        , Svg.path [ SA.d "M12 4.3C8.7 4.3 6 6.8 6 10.1V13.2C6 15.2 4.8 17 3.6 18.2C2.9 18.9 3.3 19.8 4.2 19.8H19.8C20.7 19.8 21.1 18.9 20.4 18.2C19.2 17 18 15.2 18 13.2V10.1C18 6.8 15.3 4.3 12 4.3Z" ] []
+        , Svg.path [ SA.d "M9.3 20.6h5.4a2.7 2.3 0 0 1-5.4 0z" ] []
+        ]
+
+
+phoneIcon : Bool -> Element msg
+phoneIcon lit =
+    let
+        frame =
+            Svg.rect
+                [ SA.x "5"
+                , SA.y "1.5"
+                , SA.width "14"
+                , SA.height "21"
+                , SA.rx "3.2"
+                , SA.fill "none"
+                , SA.stroke "currentColor"
+                , SA.strokeWidth "1.4"
+                ]
+                []
+
+        screen =
+            Svg.rect
+                [ SA.x "7.2"
+                , SA.y "3.7"
+                , SA.width "9.6"
+                , SA.height "16.6"
+                , SA.rx "1"
+                , SA.fill "currentColor"
+                ]
+                []
+    in
+    Element.html
+        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "26", SA.height "26" ]
+            (if lit then
+                [ frame, screen ]
+
+             else
+                [ frame ]
+            )
+        )
+
+
 durationStep : Int
 durationStep =
     5 * 60
 
 
-stepButton : Float -> Maybe Msg -> String -> Element Msg
-stepButton opacity onPress symbol =
+plusIcon : Element msg
+plusIcon =
+    strokeIcon [ "M12 6v12", "M6 12h12" ]
+
+
+minusIcon : Element msg
+minusIcon =
+    strokeIcon [ "M6 12h12" ]
+
+
+strokeIcon : List String -> Element msg
+strokeIcon paths =
+    Element.html
+        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "24", SA.height "24" ]
+            [ Svg.g [ SA.fill "none", SA.stroke "currentColor", SA.strokeWidth "2", SA.strokeLinecap "round" ]
+                (List.map (\d -> Svg.path [ SA.d d ] []) paths)
+            ]
+        )
+
+
+stepButton : Float -> Maybe Msg -> Element Msg -> Element Msg
+stepButton opacity onPress iconEl =
     let
         pressed =
             case onPress of
@@ -670,11 +755,10 @@ stepButton opacity onPress symbol =
                     []
     in
     Input.button
-        ([ Element.width (Element.px 44)
-         , Element.height (Element.px 44)
-         , Border.rounded 22
+        ([ Element.width (Element.px 48)
+         , Element.height (Element.px 48)
+         , Border.rounded 24
          , Background.color colors.surface
-         , Font.size 28
          , Font.color colors.inactive
          , Element.alpha opacity
          , Element.focused []
@@ -683,7 +767,7 @@ stepButton opacity onPress symbol =
             ++ pressed
         )
         { onPress = onPress
-        , label = el [ centerX, centerY ] (text symbol)
+        , label = el [ centerX, centerY ] iconEl
         }
 
 
@@ -728,8 +812,8 @@ durationControl model =
     in
     el
         [ centerX
-        , Element.onLeft (side (step (negate durationStep) "−"))
-        , Element.onRight (side (step durationStep "+"))
+        , Element.onLeft (side (step (negate durationStep) minusIcon))
+        , Element.onRight (side (step durationStep plusIcon))
         ]
         (el
             [ Font.size 72
@@ -789,17 +873,25 @@ timerButton model =
         }
 
 
-toggleControl : Model -> Bool -> ( String, String ) -> Msg -> Element Msg
-toggleControl model on ( onLabel, offLabel ) msg =
+toggleControl : Model -> Bool -> (Bool -> Element Msg) -> Msg -> Element Msg
+toggleControl model on iconFor msg =
     let
         visible =
             editable model.timer.status
     in
     Input.button
-        [ centerX
-        , paddingXY 24 12
-        , Font.size 16
-        , Font.color colors.inactive
+        [ Element.width (Element.px 48)
+        , Element.height (Element.px 48)
+        , Border.rounded 24
+        , Background.color colors.surface
+        , Element.mouseDown [ Background.color eldritch.tidalSurface ]
+        , Font.color
+            (if on then
+                colors.fg
+
+             else
+                colors.inactive
+            )
         , Element.alpha
             (if visible then
                 1
@@ -808,7 +900,7 @@ toggleControl model on ( onLabel, offLabel ) msg =
                 0
             )
         , Element.focused []
-        , style "transition" "opacity 0.3s"
+        , style "transition" "opacity 0.3s, color 0.2s"
         ]
         { onPress =
             if visible then
@@ -816,14 +908,7 @@ toggleControl model on ( onLabel, offLabel ) msg =
 
             else
                 Nothing
-        , label =
-            text
-                (if on then
-                    onLabel
-
-                 else
-                    offLabel
-                )
+        , label = el [ centerX, centerY ] (iconFor on)
         }
 
 
@@ -1009,6 +1094,14 @@ title model =
         (text "Meditation Timer")
 
 
+toggles : Model -> Element Msg
+toggles model =
+    row [ centerX, spacingXY 32 0 ]
+        [ toggleControl model model.config.intervals bellIcon ToggleIntervalBells
+        , toggleControl model model.config.keepScreenOn phoneIcon ToggleScreenOn
+        ]
+
+
 center : Model -> Element Msg
 center model =
     column
@@ -1018,8 +1111,7 @@ center model =
         ]
         [ warmupControl model
         , durationControl model
-        , toggleControl model model.config.intervals ( "Interval bells on", "Interval bells off" ) ToggleIntervalBells
-        , toggleControl model model.config.keepScreenOn ( "Screen stays on", "Screen can lock" ) ToggleScreenOn
+        , toggles model
         ]
 
 
