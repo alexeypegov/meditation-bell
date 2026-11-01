@@ -11358,12 +11358,50 @@ var $author$project$Main$eldritch = {
 	b$: A3($mdgriffith$elm_ui$Element$rgb255, 55, 244, 153)
 };
 var $author$project$Main$colors = {a5: $author$project$Main$eldritch.bW, am: $author$project$Main$eldritch.bZ, bt: $author$project$Main$eldritch.b$, af: $author$project$Main$eldritch.bY, bE: $author$project$Main$eldritch.bT, ah: $author$project$Main$eldritch.bV};
+var $mdgriffith$elm_ui$Internal$Model$InFront = 4;
+var $mdgriffith$elm_ui$Internal$Model$Nearby = F2(
+	function (a, b) {
+		return {$: 9, a: a, b: b};
+	});
+var $mdgriffith$elm_ui$Element$createNearby = F2(
+	function (loc, element) {
+		if (element.$ === 3) {
+			return $mdgriffith$elm_ui$Internal$Model$NoAttribute;
+		} else {
+			return A2($mdgriffith$elm_ui$Internal$Model$Nearby, loc, element);
+		}
+	});
+var $mdgriffith$elm_ui$Element$inFront = function (element) {
+	return A2($mdgriffith$elm_ui$Element$createNearby, 4, element);
+};
 var $elm$html$Html$Attributes$attribute = $elm$virtual_dom$VirtualDom$attribute;
+var $elm$html$Html$input = _VirtualDom_node('input');
+var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
+var $author$project$Main$hapticSwitch = A2(
+	$mdgriffith$elm_ui$Element$el,
+	_List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+			$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
+		]),
+	$mdgriffith$elm_ui$Element$html(
+		A2(
+			$elm$html$Html$input,
+			_List_fromArray(
+				[
+					$elm$html$Html$Attributes$type_('checkbox'),
+					A2($elm$html$Html$Attributes$attribute, 'switch', ''),
+					$elm$html$Html$Attributes$class('haptic-switch'),
+					$elm$html$Html$Attributes$tabindex(-1),
+					A2($elm$html$Html$Attributes$attribute, 'aria-hidden', 'true')
+				]),
+			_List_Nil)));
 var $author$project$Main$haptic = function (enabled) {
 	return enabled ? _List_fromArray(
 		[
 			$mdgriffith$elm_ui$Element$htmlAttribute(
-			A2($elm$html$Html$Attributes$attribute, 'data-haptic', ''))
+			A2($elm$html$Html$Attributes$attribute, 'data-haptic', '')),
+			$mdgriffith$elm_ui$Element$inFront($author$project$Main$hapticSwitch)
 		]) : _List_Nil;
 };
 var $mdgriffith$elm_ui$Internal$Model$Focus = 0;
@@ -11415,10 +11453,6 @@ var $mdgriffith$elm_ui$Internal$Model$map = F2(
 			default:
 				return $mdgriffith$elm_ui$Internal$Model$Empty;
 		}
-	});
-var $mdgriffith$elm_ui$Internal$Model$Nearby = F2(
-	function (a, b) {
-		return {$: 9, a: a, b: b};
 	});
 var $elm$virtual_dom$VirtualDom$mapAttribute = _VirtualDom_mapAttribute;
 var $mdgriffith$elm_ui$Internal$Model$TransformComponent = F2(
@@ -11826,14 +11860,6 @@ var $author$project$Main$warmupControl = function (model) {
 var $mdgriffith$elm_ui$Internal$Flag$fontAlignment = $mdgriffith$elm_ui$Internal$Flag$flag(12);
 var $mdgriffith$elm_ui$Element$Font$center = A2($mdgriffith$elm_ui$Internal$Model$Class, $mdgriffith$elm_ui$Internal$Flag$fontAlignment, $mdgriffith$elm_ui$Internal$Style$classes.dd);
 var $mdgriffith$elm_ui$Internal$Model$OnLeft = 3;
-var $mdgriffith$elm_ui$Element$createNearby = F2(
-	function (loc, element) {
-		if (element.$ === 3) {
-			return $mdgriffith$elm_ui$Internal$Model$NoAttribute;
-		} else {
-			return A2($mdgriffith$elm_ui$Internal$Model$Nearby, loc, element);
-		}
-	});
 var $mdgriffith$elm_ui$Element$onLeft = function (element) {
 	return A2($mdgriffith$elm_ui$Element$createNearby, 3, element);
 };

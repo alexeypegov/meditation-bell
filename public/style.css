@@ -19,6 +19,18 @@ body {
   touch-action: manipulation;
 }
 
+.haptic-switch {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  /* match the round buttons; clips taps, not just paint */
+  clip-path: inset(0 round 999px);
+}
+
 *,
 *::before,
 *::after {

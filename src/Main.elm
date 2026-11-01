@@ -1194,10 +1194,30 @@ part content =
 haptic : Bool -> List (Attribute Msg)
 haptic enabled =
     if enabled then
-        [ Element.htmlAttribute (Html.Attributes.attribute "data-haptic" "") ]
+        [ Element.htmlAttribute (Html.Attributes.attribute "data-haptic" "")
+        , Element.inFront hapticSwitch
+        ]
 
     else
         []
+
+
+{-| iOS plays a haptic only for a real tap on a native switch, so an invisible one covers the button.
+-}
+hapticSwitch : Element msg
+hapticSwitch =
+    el [ Element.width Element.fill, Element.height Element.fill ]
+        (Element.html
+            (Html.input
+                [ Html.Attributes.type_ "checkbox"
+                , Html.Attributes.attribute "switch" ""
+                , Html.Attributes.class "haptic-switch"
+                , Html.Attributes.tabindex -1
+                , Html.Attributes.attribute "aria-hidden" "true"
+                ]
+                []
+            )
+        )
 
 
 view : Model -> Html Msg

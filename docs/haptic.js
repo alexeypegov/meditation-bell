@@ -1,24 +1,18 @@
 var Haptics = (function () {
   "use strict";
 
-  // iOS has no vibrate(); toggling a native switch from inside a tap gives a haptic tick (iOS 18+)
-  var label = document.createElement("label");
-  var input = document.createElement("input");
-  input.type = "checkbox";
-  input.setAttribute("switch", "");
-  label.appendChild(input);
-  label.style.cssText =
-    "position:fixed;opacity:0;pointer-events:none;width:0;height:0;overflow:hidden";
-  document.body.appendChild(label);
+  // a tap on the cover's label is forwarded to its switch as a second click; the button needs only one
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (e.target.matches("[data-haptic-switch]")) e.stopPropagation();
+    },
+    true,
+  );
 
-  function tap() {
-    if (navigator.vibrate) navigator.vibrate(10);
-    else label.click();
-  }
-
+  // Android: no switch haptics there, but vibrate() works
   document.addEventListener("click", function (e) {
-    if (e.target.closest("[data-haptic]")) tap();
+    if (navigator.vibrate && e.target.closest("[data-haptic]"))
+      navigator.vibrate(10);
   });
-
-  return { tap: tap };
 })();
