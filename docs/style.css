@@ -1,5 +1,13 @@
 /* Layout and styling live in elm-ui; this only covers what it can't reach. */
 
+@font-face {
+  font-family: "Archivo";
+  src: url("fonts/archivo.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;

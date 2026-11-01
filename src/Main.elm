@@ -718,6 +718,35 @@ phoneIcon lit =
         )
 
 
+solidIcon : Int -> List (Svg.Svg msg) -> Element msg
+solidIcon size shapes =
+    Element.html
+        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width (String.fromInt size), SA.height (String.fromInt size) ]
+            [ Svg.g [ SA.fill "currentColor", SA.stroke "currentColor", SA.strokeWidth "1.5", SA.strokeLinejoin "round" ] shapes ]
+        )
+
+
+playIcon : Int -> Element msg
+playIcon size =
+    solidIcon size [ Svg.path [ SA.d "M9.5 6.5L18.5 12L9.5 17.5Z" ] [] ]
+
+
+pauseIcon : Int -> Element msg
+pauseIcon size =
+    solidIcon size
+        [ Svg.rect [ SA.x "7", SA.y "6.5", SA.width "2.5", SA.height "11" ] []
+        , Svg.rect [ SA.x "14.5", SA.y "6.5", SA.width "2.5", SA.height "11" ] []
+        ]
+
+
+rewindIcon : Int -> Element msg
+rewindIcon size =
+    solidIcon size
+        [ Svg.path [ SA.d "M11.5 6.5L4 12L11.5 17.5Z" ] []
+        , Svg.path [ SA.d "M20 6.5L12.5 12L20 17.5Z" ] []
+        ]
+
+
 durationStep : Int
 durationStep =
     5 * 60
@@ -725,22 +754,16 @@ durationStep =
 
 plusIcon : Element msg
 plusIcon =
-    strokeIcon [ "M12 6v12", "M6 12h12" ]
+    solidIcon 30
+        [ Svg.rect [ SA.x "5.75", SA.y "11.45", SA.width "12.5", SA.height "1.1" ] []
+        , Svg.rect [ SA.x "11.45", SA.y "5.75", SA.width "1.1", SA.height "12.5" ] []
+        ]
 
 
 minusIcon : Element msg
 minusIcon =
-    strokeIcon [ "M6 12h12" ]
-
-
-strokeIcon : List String -> Element msg
-strokeIcon paths =
-    Element.html
-        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "24", SA.height "24" ]
-            [ Svg.g [ SA.fill "none", SA.stroke "currentColor", SA.strokeWidth "2", SA.strokeLinecap "round" ]
-                (List.map (\d -> Svg.path [ SA.d d ] []) paths)
-            ]
-        )
+    solidIcon 30
+        [ Svg.rect [ SA.x "5.75", SA.y "11.45", SA.width "12.5", SA.height "1.1" ] [] ]
 
 
 stepButton : Float -> Maybe Msg -> Element Msg -> Element Msg
@@ -765,6 +788,7 @@ stepButton opacity onPress iconEl =
          , style "transition" "opacity 0.3s"
          ]
             ++ pressed
+            ++ haptic (onPress /= Nothing)
         )
         { onPress = onPress
         , label = el [ centerX, centerY ] iconEl
@@ -819,6 +843,7 @@ durationControl model =
             [ Font.size 72
             , Font.variant Font.tabularNumbers
             , Font.color color
+            , Font.semiBold
             , Font.center
             , style "min-width" "5ch"
             , style "transition" "color 0.3s"
@@ -833,43 +858,38 @@ timerButton model =
         running =
             model.timer.status == TimerStarted
 
-        ( label, msg ) =
-            case model.timer.status of
-                TimerReady ->
-                    ( "Start", Start )
+        ( iconFor, msg ) =
+            if running then
+                ( pauseIcon, Pause )
 
-                TimerStarted ->
-                    ( "Pause", Pause )
-
-                TimerPaused ->
-                    ( "Resume", Start )
-
-                TimerFinished ->
-                    ( "Start", Start )
+            else
+                ( playIcon, Start )
     in
     Input.button
-        [ paddingXY 36 16
-        , Background.color
+        ([ Element.width (Element.px 96)
+         , Element.height (Element.px 96)
+         , Border.rounded 72
+         , Background.color
             (if running then
                 Element.rgba 0 0 0 0
 
              else
                 colors.surface
             )
-        , Font.color
+         , Font.color
             (if running then
                 colors.inactive
 
              else
                 colors.accent
             )
-        , Font.size 32
-        , Border.rounded 22
-        , style "transition" "background-color 0.3s, color 0.3s"
-        , Element.focused []
-        ]
+         , style "transition" "background-color 0.3s, color 0.3s"
+         , Element.focused []
+         ]
+            ++ haptic True
+        )
         { onPress = Just msg
-        , label = text label
+        , label = el [ centerX, centerY ] (iconFor 72)
         }
 
 
@@ -880,28 +900,30 @@ toggleControl model on iconFor msg =
             editable model.timer.status
     in
     Input.button
-        [ Element.width (Element.px 48)
-        , Element.height (Element.px 48)
-        , Border.rounded 24
-        , Background.color colors.surface
-        , Element.mouseDown [ Background.color eldritch.tidalSurface ]
-        , Font.color
+        ([ Element.width (Element.px 48)
+         , Element.height (Element.px 48)
+         , Border.rounded 24
+         , Background.color colors.surface
+         , Element.mouseDown [ Background.color eldritch.tidalSurface ]
+         , Font.color
             (if on then
                 colors.fg
 
              else
                 colors.inactive
             )
-        , Element.alpha
+         , Element.alpha
             (if visible then
                 1
 
              else
                 0
             )
-        , Element.focused []
-        , style "transition" "opacity 0.3s, color 0.2s"
-        ]
+         , Element.focused []
+         , style "transition" "opacity 0.3s, color 0.2s"
+         ]
+            ++ haptic visible
+        )
         { onPress =
             if visible then
                 Just msg
@@ -1009,6 +1031,7 @@ warmupControl model =
              , Border.width 1
              , Border.rounded 12
              , Font.size 48
+             , Font.medium
              , Font.color color
              , Font.variant Font.tabularNumbers
              , Element.focused []
@@ -1016,6 +1039,7 @@ warmupControl model =
              , style "transition" "opacity 1s linear"
              ]
                 ++ buttonStyle
+                ++ haptic isEditable
             )
             { onPress =
                 if isEditable then
@@ -1035,32 +1059,65 @@ resetButton model =
             model.timer.status == TimerPaused
     in
     Input.button
-        [ centerX
-        , paddingXY 24 12
-        , Font.color colors.inactive
-        , Element.alpha
+        ([ Element.width (Element.px 64)
+         , Element.height (Element.px 64)
+         , Border.rounded 36
+         , Background.color colors.surface
+         , Element.mouseDown [ Background.color eldritch.tidalSurface ]
+         , Font.color colors.inactive
+         , Element.alpha
             (if visible then
                 1
 
              else
                 0
             )
-        , Element.focused []
-        , style "transition" "opacity 0.3s"
-        ]
+         , Element.focused []
+         , style "transition" "opacity 0.3s"
+         ]
+            ++ haptic visible
+        )
         { onPress =
             if visible then
                 Just Reset
 
             else
                 Nothing
-        , label = text "Reset"
+        , label = el [ centerX, centerY ] (rewindIcon 32)
         }
 
 
 hideAfter : Int
 hideAfter =
     10 * 1000
+
+
+logo : Element msg
+logo =
+    let
+        ring r width color =
+            Svg.circle
+                [ SA.cx "256"
+                , SA.cy "256"
+                , SA.r r
+                , SA.fill "none"
+                , SA.stroke color
+                , SA.strokeWidth width
+                ]
+                []
+    in
+    Element.html
+        (Svg.svg
+            [ SA.viewBox "64 64 384 384" -- the outer ring's edge, no margin
+            , SA.width "128"
+            , SA.height "128"
+            , SA.style "display: block" -- inline svg leaves a gap under it for text descenders
+            ]
+            [ ring "164.5" "55" "#3D4256" -- outer ring
+            , ring "82.5" "27" "#596173" -- middle ring
+            , Svg.circle [ SA.cx "256", SA.cy "256", SA.r "18", SA.fill "#A9B4BA" ] []
+            ]
+        )
 
 
 title : Model -> Element Msg
@@ -1087,11 +1144,10 @@ title model =
     el
         [ centerX
         , Font.size 32
-        , Font.semiBold
         , Element.alpha opacity
         , style "transition" "opacity 1s"
         ]
-        (text "Meditation Timer")
+        logo
 
 
 toggles : Model -> Element Msg
@@ -1106,7 +1162,7 @@ center : Model -> Element Msg
 center model =
     column
         [ centerX
-        , spacing 24
+        , spacing 48
         , padding 16
         ]
         [ warmupControl model
@@ -1117,13 +1173,11 @@ center model =
 
 footer : Model -> Element Msg
 footer model =
-    column
+    el
         [ centerX
-        , spacing 16
+        , Element.onLeft (el [ centerX, centerY, paddingXY 32 0 ] (resetButton model))
         ]
-        [ timerButton model
-        , resetButton model
-        ]
+        (timerButton model)
 
 
 style : String -> String -> Attribute Msg
@@ -1131,12 +1185,27 @@ style name =
     Element.htmlAttribute << Html.Attributes.style name
 
 
+part : Element Msg -> Element Msg
+part content =
+    el [ Element.width Element.fill, Element.height Element.fill ]
+        (el [ centerX, centerY ] content)
+
+
+haptic : Bool -> List (Attribute Msg)
+haptic enabled =
+    if enabled then
+        [ Element.htmlAttribute (Html.Attributes.attribute "data-haptic" "") ]
+
+    else
+        []
+
+
 view : Model -> Html Msg
 view model =
     Element.layout
         [ Background.color colors.bg
         , Font.color colors.fg
-        , Font.family [ Font.typeface "system-ui", Font.sansSerif ]
+        , Font.family [ Font.typeface "Archivo", Font.typeface "system-ui", Font.sansSerif ]
         ]
         (column
             [ Element.width Element.fill
@@ -1146,8 +1215,8 @@ view model =
             , style "padding-left" "env(safe-area-inset-left)"
             , style "padding-right" "env(safe-area-inset-right)"
             ]
-            [ el [ centerX, alignTop ] (title model)
-            , el [ centerX, centerY ] (center model)
-            , el [ centerX, alignBottom ] (footer model)
+            [ part (title model)
+            , el [ centerX ] (center model)
+            , part (footer model)
             ]
         )

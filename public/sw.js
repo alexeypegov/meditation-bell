@@ -6,6 +6,7 @@ const ASSETS = [
   "index.html",
   "elm.js",
   "session.js",
+  "haptic.js",
   "style.css",
   "manifest.webmanifest",
   "icons/icon.svg",
@@ -17,6 +18,7 @@ const ASSETS = [
   "sounds/interval-2.mp3",
   "sounds/interval-3.mp3",
   "sounds/final.mp3",
+  "fonts/archivo.woff2",
 ];
 
 self.addEventListener("install", (event) => {
