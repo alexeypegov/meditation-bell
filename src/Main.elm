@@ -1,7 +1,6 @@
 port module Main exposing (main)
 
 import Browser
-import Browser.Events exposing (Visibility(..))
 import Element exposing (Attribute, Element, alignBottom, alignTop, centerX, centerY, column, el, padding, paddingXY, rgb255, spacing, text)
 import Element.Background as Background
 import Element.Border as Border
@@ -27,10 +26,7 @@ port playBell : String -> Cmd msg
 port stopBells : () -> Cmd msg
 
 
-port keepAwake : Bool -> Cmd msg
-
-
-port pageHidden : (() -> msg) -> Sub msg
+port keepAwake : { session : Bool, screen : Bool } -> Cmd msg
 
 
 port saveSettings : Encode.Value -> Cmd msg
@@ -90,6 +86,7 @@ type alias Configuration =
     { duration : Int -- seconds
     , warmup : Int -- seconds
     , intervals : Bool
+    , keepScreenOn : Bool
     }
 
 
@@ -111,6 +108,7 @@ initialConfig =
     { duration = 600
     , warmup = 30
     , intervals = True
+    , keepScreenOn = False
     }
 
 
@@ -170,10 +168,11 @@ configDecoder =
         field name decoder default =
             Decode.oneOf [ Decode.field name decoder, Decode.succeed default ]
     in
-    Decode.map3 Configuration
+    Decode.map4 Configuration
         (field "duration" (Decode.map (clamp minDuration maxDuration) Decode.int) initialConfig.duration)
         (field "warmup" warmupDecoder initialConfig.warmup)
         (field "intervals" Decode.bool initialConfig.intervals)
+        (field "keepScreenOn" Decode.bool initialConfig.keepScreenOn)
 
 
 encodeConfig : Configuration -> Encode.Value
@@ -182,6 +181,7 @@ encodeConfig config =
         [ ( "duration", Encode.int config.duration )
         , ( "warmup", Encode.int config.warmup )
         , ( "intervals", Encode.bool config.intervals )
+        , ( "keepScreenOn", Encode.bool config.keepScreenOn )
         ]
 
 
@@ -219,10 +219,10 @@ type Msg
     | Reset
     | Heartbeat Time.Posix
     | Tick Time.Posix
-    | VisibilityChanged Visibility
-    | PageHidden
     | ChangeDuration Int
     | CycleWarmup
+    | ToggleScreenOn
+    | ToggleIntervalBells
 
 
 advance : Time.Posix -> Model -> ( Model, Cmd Msg )
@@ -238,7 +238,7 @@ advance now model =
         ( { model
             | timer = freshTimer model.config
           }
-        , Cmd.batch [ keepAwake False, ringBell Final ]
+        , Cmd.batch [ awake False model, ringBell Final ]
         )
 
     else if timer.phase == Preparing && elapsed >= timer.warmup then
@@ -290,6 +290,11 @@ bellCount timer =
 
     else
         Random.constant 0
+
+
+awake : Bool -> Model -> Cmd msg
+awake on model =
+    keepAwake { session = on, screen = on && model.config.keepScreenOn }
 
 
 {-| Places `left` bells at random between `start` and `end`, none closer than
@@ -377,7 +382,7 @@ update msg model =
                 ( advanced, bellCmd ) =
                     advance now { model | timer = started }
             in
-            ( advanced, Cmd.batch [ keepAwake True, bellCmd, exactTicks elapsed ] )
+            ( advanced, Cmd.batch [ awake True model, bellCmd, exactTicks elapsed ] )
 
         Pause ->
             pauseIfRunning model
@@ -393,7 +398,7 @@ update msg model =
                             , now = Just now
                         }
                   }
-                , Cmd.batch [ keepAwake False, stopBells () ]
+                , Cmd.batch [ awake False model, stopBells () ]
                 )
 
             else
@@ -401,7 +406,7 @@ update msg model =
 
         Reset ->
             ( { model | timer = freshTimer model.config }
-            , Cmd.batch [ keepAwake False, stopBells () ]
+            , Cmd.batch [ awake False model, stopBells () ]
             )
 
         Heartbeat now ->
@@ -421,15 +426,6 @@ update msg model =
 
             else
                 ( model, Cmd.none )
-
-        VisibilityChanged Hidden ->
-            pauseIfRunning model
-
-        VisibilityChanged Visible ->
-            ( model, Cmd.none )
-
-        PageHidden ->
-            pauseIfRunning model
 
         ChangeDuration step ->
             if editable timer.status then
@@ -453,6 +449,28 @@ update msg model =
             else
                 ( model, Cmd.none )
 
+        ToggleScreenOn ->
+            if editable timer.status then
+                let
+                    config =
+                        model.config
+                in
+                setConfig { config | keepScreenOn = not config.keepScreenOn } model
+
+            else
+                ( model, Cmd.none )
+
+        ToggleIntervalBells ->
+            if editable timer.status then
+                let
+                    config =
+                        model.config
+                in
+                setConfig { config | intervals = not config.intervals } model
+
+            else
+                ( model, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
@@ -470,11 +488,7 @@ heartbeat model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ Browser.Events.onVisibilityChange VisibilityChanged
-        , pageHidden (\_ -> PageHidden)
-        , heartbeat model
-        ]
+    heartbeat model
 
 
 
@@ -775,6 +789,44 @@ timerButton model =
         }
 
 
+toggleControl : Model -> Bool -> ( String, String ) -> Msg -> Element Msg
+toggleControl model on ( onLabel, offLabel ) msg =
+    let
+        visible =
+            editable model.timer.status
+    in
+    Input.button
+        [ centerX
+        , paddingXY 24 12
+        , Font.size 16
+        , Font.color colors.inactive
+        , Element.alpha
+            (if visible then
+                1
+
+             else
+                0
+            )
+        , Element.focused []
+        , style "transition" "opacity 0.3s"
+        ]
+        { onPress =
+            if visible then
+                Just msg
+
+            else
+                Nothing
+        , label =
+            text
+                (if on then
+                    onLabel
+
+                 else
+                    offLabel
+                )
+        }
+
+
 nextWarmup : Int -> Int
 nextWarmup current =
     warmupDurations
@@ -966,6 +1018,8 @@ center model =
         ]
         [ warmupControl model
         , durationControl model
+        , toggleControl model model.config.intervals ( "Interval bells on", "Interval bells off" ) ToggleIntervalBells
+        , toggleControl model model.config.keepScreenOn ( "Screen stays on", "Screen can lock" ) ToggleScreenOn
         ]
 
 

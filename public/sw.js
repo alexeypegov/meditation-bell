@@ -5,6 +5,7 @@ const ASSETS = [
   "./",
   "index.html",
   "elm.js",
+  "session.js",
   "style.css",
   "manifest.webmanifest",
   "icons/icon.svg",
@@ -21,9 +22,13 @@ const ASSETS = [
 self.addEventListener("install", (event) => {
   // cache: "reload" bypasses the HTTP cache, so a fresh install never stores stale files
   event.waitUntil(
-    caches.open(CACHE).then((cache) =>
-      cache.addAll(ASSETS.map((url) => new Request(url, { cache: "reload" }))),
-    ),
+    caches
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll(
+          ASSETS.map((url) => new Request(url, { cache: "reload" })),
+        ),
+      ),
   );
   self.skipWaiting();
 });

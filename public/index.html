@@ -25,6 +25,7 @@
 
   <link rel="stylesheet" href="style.css">
   <script src="elm.js"></script>
+  <script src="session.js"></script>
 </head>
 
 <body>
@@ -50,13 +51,7 @@
           wakeLock = lock;
           lock.addEventListener("release", function () {
             wakeLock = null;
-            if (!wantAwake) return;               // we released it ourselves
-
-            if (document.hasFocus()) {
-              acquireWakeLock();                   // system released it while we're in front
-            } else if (app.ports.pageHidden) {
-              app.ports.pageHidden.send(null);     // page went away
-            }
+            if (wantAwake && document.visibilityState === "visible") acquireWakeLock();
           });
         })
         .catch(function (err) {
@@ -65,107 +60,31 @@
         });
     }
 
-    app.ports.keepAwake.subscribe(function (on) {
-      // try to recover broken audio context, in a case iOS left it attached to the previous output
-      if (on) newAudioContext();
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && wantAwake) acquireWakeLock();
+    });
 
-      wantAwake = on;
+    app.ports.keepAwake.subscribe(function (awake) {
+      Session.setActive(awake.session);
+
+      wantAwake = awake.screen;
       if (!("wakeLock" in navigator)) return;
 
-      if (on && !wakeLock) {
+      if (wantAwake && !wakeLock) {
         acquireWakeLock();
-      } else if (!on && wakeLock) {
+      } else if (!wantAwake && wakeLock) {
         wakeLock.release();
         wakeLock = null;
       }
     });
 
-    // --- Audio ---
-
-    var audioCtx = null;
-    var playing = [];
-    var buffers = {};
-    var decoder = new OfflineAudioContext(1, 1, 48000); // only decodes audio
-
-    function newAudioContext() {
-      if (audioCtx) audioCtx.close().catch(() => { });
-      playing = [];
-      var ctx = new AudioContext();
-      ctx.onstatechange = () => console.log("audio:", ctx.state);
-      ctx.resume().catch(() => { });
-      audioCtx = ctx;
-    }
-
-    function releaseAudio() {
-      if (wantAwake || playing.length > 0 || !audioCtx) return;
-      audioCtx.close().catch(() => { });
-      audioCtx = null;
-    }
-
-    ["starting", "interval-1", "interval-2", "interval-3", "final"].forEach(function (name) {
-      fetch("sounds/" + name + ".mp3")
-        .then(r => {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.arrayBuffer();
-        })
-        .then(data => decoder.decodeAudioData(data))
-        .then(buf => buffers[name] = buf)
-        .catch(err => console.warn("Failed to load sound:", name, err))
-    })
-
-    // Browsers only allow audio after a user gesture, and iOS suspends or
-    // interrupts the context (backgrounding, calls, route changes), so recover on every tap
-    function unlockAudio() {
-      if (!audioCtx) return;
-      if (audioCtx.state === "interrupted" || audioCtx.state === "closed") newAudioContext();
-      if (audioCtx.state !== "running") audioCtx.resume().catch(() => { });
-    }
-
-    ["click", "touchend", "keydown"].forEach(type => document.addEventListener(type, unlockAudio))
-
-    // iOS: play even when the ringer switch is on silent (Safari 17+)
-    if (navigator.audioSession) navigator.audioSession.type = "playback";
 
     if (app.ports && app.ports.playBell) {
-      app.ports.playBell.subscribe(function (name) {
-        if (!audioCtx) return;
-
-        var buf = buffers[name];
-        if (!buf) {console.warn("Sound not loaded:", name); return;}
-
-        // an interrupted context can often resume without a tap once the interruption ends
-        if (audioCtx.state !== "running") audioCtx.resume().catch(() => { });
-
-        var ctx = audioCtx;
-        var gain = ctx.createGain();
-        var src = ctx.createBufferSource();
-        src.buffer = buf;
-        src.connect(gain).connect(ctx.destination);
-
-        var entry = {src: src, gain: gain};
-        playing.push(entry);
-        src.onended = () => {
-          playing = playing.filter(e => e !== entry);
-          releaseAudio();
-        }
-        src.start();
-      });
+      app.ports.playBell.subscribe(name => Session.play(name));
     }
 
     if (app.ports && app.ports.stopBells) {
-      app.ports.stopBells.subscribe(function () {
-        if (!audioCtx) return;
-
-        var t = audioCtx.currentTime;
-        playing.forEach(function (e) {
-          e.gain.gain.setValueAtTime(e.gain.gain.value, t);
-          e.gain.gain.linearRampToValueAtTime(0, t + 0.3);
-          e.src.stop(t + 0.3);
-        });
-
-        playing = [];
-        setTimeout(releaseAudio, 400);
-      });
+      app.ports.stopBells.subscribe(() => Session.stop());
     }
 
     // - Settings
