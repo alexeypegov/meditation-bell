@@ -2,8 +2,6 @@
 
 A simple meditation timer that rings a bell — at the start, at the end, and, if you like, at random moments in between.
 
-**Use it:** [meditation.pegov.dev](https://meditation.pegov.dev)
-
 ## Features
 
 - **Meditation bell.** Set a session from 5 to 60 minutes and press play. A bell marks the beginning and a longer one marks the end.
