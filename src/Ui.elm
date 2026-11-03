@@ -1,7 +1,7 @@
 module Ui exposing (render)
 
 import Config exposing (maxSessionDuration, minSessionDuration)
-import Element exposing (Attribute, Element, centerX, centerY, column, el, padding, paddingXY, row, spacing, spacingXY, text)
+import Element exposing (Attribute, Element, alignBottom, alpha, behindContent, centerX, centerY, clip, column, el, fill, focused, height, html, htmlAttribute, inFront, layout, maximum, mouseDown, onLeft, paddingXY, px, rgb255, rgba, row, spacingXY, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -9,11 +9,21 @@ import Element.Input as Input
 import Html exposing (Html)
 import Html.Attributes
 import Model exposing (Model, Msg(..))
+import String
 import Svg
 import Svg.Attributes as SA
-import Theme exposing (colors, eldritch)
 import Time
 import Timer exposing (Phase(..), TimerStatus(..), currentElapsed, isOffSession, remaining)
+
+
+colors : { bg : Element.Color, surface : Element.Color, fg : Element.Color, inactive : Element.Color, disabled : Element.Color }
+colors =
+    { bg = rgb255 20 20 20
+    , surface = rgb255 50 50 50
+    , fg = rgb255 200 200 200
+    , inactive = rgb255 100 100 100
+    , disabled = rgb255 100 100 100
+    }
 
 
 {-| Step size during duration adjustments (secs).
@@ -64,7 +74,7 @@ icon filled shapes =
             else
                 [ SA.fill "none", SA.stroke "currentColor", SA.strokeWidth "1.4", SA.strokeLinejoin "round" ]
     in
-    Element.html
+    html
         (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "26", SA.height "26" ]
             [ Svg.g paint shapes ]
         )
@@ -106,7 +116,7 @@ phoneIcon lit =
                 ]
                 []
     in
-    Element.html
+    html
         (Svg.svg [ SA.viewBox "0 0 24 24", SA.width "26", SA.height "26" ]
             (if lit then
                 [ frame, screen ]
@@ -119,15 +129,26 @@ phoneIcon lit =
 
 solidIcon : Int -> List (Svg.Svg msg) -> Element msg
 solidIcon size shapes =
-    Element.html
-        (Svg.svg [ SA.viewBox "0 0 24 24", SA.width (String.fromInt size), SA.height (String.fromInt size) ]
+    html
+        (Svg.svg
+            [ SA.viewBox "0 0 24 24"
+            , SA.width (String.fromInt size)
+            , SA.height (String.fromInt size)
+            , SA.style "display: block"
+            ]
             [ Svg.g [ SA.fill "currentColor", SA.stroke "currentColor", SA.strokeWidth "1.5", SA.strokeLinejoin "round" ] shapes ]
         )
 
 
 playIcon : Int -> Element msg
 playIcon size =
-    solidIcon size [ Svg.path [ SA.d "M9.5 6.5L18.5 12L9.5 17.5Z" ] [] ]
+    solidIcon size
+        [ Svg.path
+            [ SA.d "M9.5 6.5L18.5 12L9.5 17.5Z"
+            , SA.transform "translate(-1 0)"
+            ]
+            []
+        ]
 
 
 pauseIcon : Int -> Element msg
@@ -141,8 +162,8 @@ pauseIcon size =
 rewindIcon : Int -> Element msg
 rewindIcon size =
     solidIcon size
-        [ Svg.path [ SA.d "M11.5 6.5L4 12L11.5 17.5Z" ] []
-        , Svg.path [ SA.d "M20 6.5L12.5 12L20 17.5Z" ] []
+        [ Svg.path [ SA.d "M11.5 6.5L4 12L11.5 17.5Z", SA.transform "translate (-2 0)" ] []
+        , Svg.path [ SA.d "M20 6.5L12.5 12L20 17.5Z", SA.transform "translate (-1 0)" ] []
         ]
 
 
@@ -166,20 +187,20 @@ stepButton opacity onPress iconEl =
         pressed =
             case onPress of
                 Just _ ->
-                    [ Element.mouseDown [ Background.color eldritch.tidalSurface ] ]
+                    [ mouseDown [ Background.color eldritch.tidalSurface ] ]
 
                 Nothing ->
                     []
     in
     Input.button
-        ([ Element.width (Element.px 48)
-         , Element.height (Element.px 48)
+        ([ width (px 48)
+         , height (px 48)
          , Border.rounded 24
          , Background.color colors.surface
-         , Font.color colors.inactive
-         , Element.alpha opacity
-         , Element.focused []
-         , style "transition" "opacity 0.3s"
+         , Font.color colors.fg
+         , alpha opacity
+         , focused []
+         , style "transition" "opacity 2s"
          ]
             ++ pressed
             ++ haptic (onPress /= Nothing)
@@ -215,9 +236,6 @@ durationControl model =
             else
                 stepButton 0.3 Nothing symbol
 
-        side =
-            el [ centerY, paddingXY 16 0 ]
-
         left =
             remaining Meditating model.timer (currentElapsed model.timer)
 
@@ -228,22 +246,19 @@ durationControl model =
             else
                 colors.fg
     in
-    el
-        [ centerX
-        , Element.onLeft (side (step (negate durationIncrementStep) minusIcon))
-        , Element.onRight (side (step durationIncrementStep plusIcon))
+    row
+        [ width fill
+        , Font.size 72
+        , Font.variant Font.tabularNumbers
+        , Font.color color
+        , Font.semiBold
+        , style "transition" "color 2s"
+        , style "justify-content" "space-evenly"
         ]
-        (el
-            [ Font.size 72
-            , Font.variant Font.tabularNumbers
-            , Font.color color
-            , Font.semiBold
-            , Font.center
-            , style "min-width" "5ch"
-            , style "transition" "color 0.3s"
-            ]
-            (timeText model left)
-        )
+        [ step (negate durationIncrementStep) minusIcon
+        , timeText model left
+        , step durationIncrementStep plusIcon
+        ]
 
 
 timerButton : Model -> Element Msg
@@ -260,25 +275,19 @@ timerButton model =
                 ( playIcon, Start )
     in
     Input.button
-        ([ Element.width (Element.px 96)
-         , Element.height (Element.px 96)
+        ([ width (px 96)
+         , height (px 96)
          , Border.rounded 72
          , Background.color
             (if running then
-                Element.rgba 0 0 0 0
+                rgba 0 0 0 0
 
              else
                 colors.surface
             )
-         , Font.color
-            (if running then
-                colors.inactive
-
-             else
-                colors.accent
-            )
-         , style "transition" "background-color 0.3s, color 0.3s"
-         , Element.focused []
+         , Font.color colors.fg
+         , style "transition" "background-color 2s, color 2s"
+         , focused []
          ]
             ++ haptic True
         )
@@ -294,27 +303,21 @@ toggleControl model on iconFor msg =
             isOffSession model.timer.status
     in
     Input.button
-        ([ Element.width (Element.px 48)
-         , Element.height (Element.px 48)
+        ([ width (px 48)
+         , height (px 48)
          , Border.rounded 24
          , Background.color colors.surface
-         , Element.mouseDown [ Background.color eldritch.tidalSurface ]
-         , Font.color
-            (if on then
-                colors.fg
-
-             else
-                colors.inactive
-            )
-         , Element.alpha
+         , mouseDown [ Background.color eldritch.tidalSurface ]
+         , Font.color colors.fg
+         , alpha
             (if visible then
                 1
 
              else
                 0
             )
-         , Element.focused []
-         , style "transition" "opacity 0.3s, color 0.2s"
+         , focused []
+         , style "transition" "opacity 2s, color 2s"
          ]
             ++ haptic visible
         )
@@ -338,14 +341,15 @@ timeText model ms =
             else
                 formatCountdown ms
     in
-    text formatted
+    el [ style "min-width" "5ch" ]
+        (el [ centerX ] (text formatted))
 
 
 warmupControl : Model -> Element Msg
 warmupControl model =
     let
         transparent =
-            Element.rgba 0 0 0 0
+            rgba 0 0 0 0
 
         timer =
             model.timer
@@ -367,27 +371,20 @@ warmupControl model =
                 timeText model left
 
         color =
-            if isEditable then
-                colors.inactive
-
-            else
-                colors.fg
+            colors.fg
 
         opacity =
             if isEditable then
                 1
 
-            else if left <= 1000 then
-                0
-
             else
-                0.4 + 0.6 * clamp 0 1 (toFloat (left - 1000) / 5000)
+                1 - 1000 / toFloat (left + 1000)
 
         buttonStyle =
             if isEditable then
                 [ Background.color colors.surface
-                , Border.color eldritch.tidalSurface
-                , Element.mouseDown [ Background.color eldritch.tidalSurface ]
+                , Border.color colors.surface
+                , mouseDown [ Background.color eldritch.tidalSurface ]
                 ]
 
             else
@@ -398,16 +395,16 @@ warmupControl model =
     el [ centerX ]
         (Input.button
             ([ centerX
-             , paddingXY 20 8
+             , paddingXY 0 8
              , Border.width 1
              , Border.rounded 12
              , Font.size 48
-             , Font.medium
+             , Font.semiBold
              , Font.color color
              , Font.variant Font.tabularNumbers
-             , Element.focused []
-             , Element.alpha opacity
-             , style "transition" "opacity 1s linear"
+             , focused []
+             , alpha opacity
+             , style "transition" "background 2s, color 2s"
              ]
                 ++ buttonStyle
                 ++ haptic isEditable
@@ -430,21 +427,21 @@ resetButton model =
             model.timer.status == TimerPaused
     in
     Input.button
-        ([ Element.width (Element.px 64)
-         , Element.height (Element.px 64)
+        ([ width (px 64)
+         , height (px 64)
          , Border.rounded 36
          , Background.color colors.surface
-         , Element.mouseDown [ Background.color eldritch.tidalSurface ]
-         , Font.color colors.inactive
-         , Element.alpha
+         , Font.color colors.fg
+         , mouseDown [ Background.color eldritch.tidalSurface ]
+         , alpha
             (if visible then
                 1
 
              else
                 0
             )
-         , Element.focused []
-         , style "transition" "opacity 0.3s"
+         , focused []
+         , style "transition" "opacity 2s"
          ]
             ++ haptic visible
         )
@@ -458,36 +455,60 @@ resetButton model =
         }
 
 
-hideAfter : Int
-hideAfter =
-    10 * 1000
-
-
 logo : Element msg
 logo =
     let
-        ring r width color =
+        ringCount =
+            10
+
+        ring n r strokeWidth color =
             Svg.circle
-                [ SA.cx "256"
-                , SA.cy "256"
-                , SA.r r
+                [ SA.cx "50"
+                , SA.cy "15"
+                , SA.r (String.fromFloat r)
                 , SA.fill "none"
+                , SA.strokeWidth (String.fromFloat strokeWidth)
                 , SA.stroke color
-                , SA.strokeWidth width
+                , SA.opacity (String.fromFloat ((1 - n / ringCount) ^ 2))
                 ]
                 []
+
+        rings =
+            List.range 1 ringCount
+                |> List.filterMap
+                    (\n ->
+                        let
+                            r i =
+                                toFloat (n - i) ^ 2 + 3.0 * toFloat (n - i)
+
+                            r0 =
+                                r 1
+
+                            r1 =
+                                r 0
+
+                            rc =
+                                (r0 + r1) / 2
+
+                            skip =
+                                modBy 2 n == 0
+                        in
+                        if skip then
+                            Nothing
+
+                        else
+                            Just (ring (toFloat n) rc (r1 - r0) "#FFF")
+                    )
     in
-    Element.html
+    html
         (Svg.svg
-            [ SA.viewBox "64 64 384 384" -- the outer ring's edge, no margin
-            , SA.width "128"
-            , SA.height "128"
-            , SA.style "display: block" -- inline svg leaves a gap under it for text descenders
+            [ SA.viewBox "0 0 100 100"
+            , SA.preserveAspectRatio "xMidYMin slice"
+            , SA.width "100%"
+            , SA.height "100%"
+            , SA.style "display: block"
             ]
-            [ ring "164.5" "55" "#3D4256" -- outer ring
-            , ring "82.5" "27" "#596173" -- middle ring
-            , Svg.circle [ SA.cx "256", SA.cy "256", SA.r "18", SA.fill "#A9B4BA" ] []
-            ]
+            rings
         )
 
 
@@ -505,68 +526,70 @@ title model =
                 _ ->
                     0
 
+        _ =
+            Debug.log "sinceStart" sinceStart
+
         opacity =
-            if model.timer.status /= TimerStarted || sinceStart < hideAfter then
+            if model.timer.status /= TimerStarted then
                 1
 
             else
                 0
     in
     el
-        [ centerX
-        , Font.size 32
-        , Element.alpha opacity
-        , style "transition" "opacity 1s"
+        [ width fill
+        , height fill
+        , alpha opacity
+        , style "transition" "opacity 2s"
         ]
         logo
 
 
 toggles : Model -> Element Msg
 toggles model =
-    row [ centerX, spacingXY 32 0 ]
+    row
+        [ centerX
+        , spacingXY 32 0
+        ]
         [ toggleControl model model.config.intervals bellIcon ToggleIntervalBells
         , toggleControl model model.config.keepScreenOn phoneIcon ToggleScreenOn
         ]
 
 
-center : Model -> Element Msg
-center model =
+controls : Model -> Element Msg
+controls model =
     column
-        [ centerX
-        , spacing 48
-        , padding 16
+        [ width fill
+        , centerX
+        , spacingXY 0 32
         ]
         [ warmupControl model
         , durationControl model
         , toggles model
+        , sessionControls model
         ]
 
 
-footer : Model -> Element Msg
-footer model =
+sessionControls : Model -> Element Msg
+sessionControls model =
     el
         [ centerX
-        , Element.onLeft (el [ centerX, centerY, paddingXY 32 0 ] (resetButton model))
+        , paddingXY 0 32
+        , onLeft (el [ centerX, centerY, paddingXY 32 0 ] (resetButton model))
         ]
         (timerButton model)
 
 
 style : String -> String -> Attribute Msg
 style name =
-    Element.htmlAttribute << Html.Attributes.style name
-
-
-part : Element Msg -> Element Msg
-part content =
-    el [ Element.width Element.fill, Element.height Element.fill ]
-        (el [ centerX, centerY ] content)
+    htmlAttribute << Html.Attributes.style name
 
 
 haptic : Bool -> List (Attribute Msg)
 haptic enabled =
     if enabled then
-        [ Element.htmlAttribute (Html.Attributes.attribute "data-haptic" "")
-        , Element.inFront hapticSwitch
+        [ htmlAttribute (Html.Attributes.attribute "data-haptic" "")
+        , inFront hapticSwitch
         ]
 
     else
@@ -577,8 +600,8 @@ haptic enabled =
 -}
 hapticSwitch : Element msg
 hapticSwitch =
-    el [ Element.width Element.fill, Element.height Element.fill ]
-        (Element.html
+    el [ width fill, height fill ]
+        (html
             (Html.input
                 [ Html.Attributes.type_ "checkbox"
                 , Html.Attributes.attribute "switch" ""
@@ -593,21 +616,26 @@ hapticSwitch =
 
 render : Model -> Html Msg
 render model =
-    Element.layout
+    layout
         [ Background.color colors.bg
         , Font.color colors.fg
         , Font.family [ Font.typeface "Archivo", Font.typeface "system-ui", Font.sansSerif ]
         ]
-        (column
-            [ Element.width Element.fill
-            , Element.height Element.fill
+        (el
+            [ width fill
+            , height fill
             , style "padding-top" "calc(env(safe-area-inset-top) + 32px)"
             , style "padding-bottom" "calc(env(safe-area-inset-bottom) + 32px)"
             , style "padding-left" "env(safe-area-inset-left)"
             , style "padding-right" "env(safe-area-inset-right)"
+            , behindContent (title model)
+            , clip
             ]
-            [ part (title model)
-            , el [ centerX ] (center model)
-            , part (footer model)
-            ]
+            (el
+                [ width (fill |> maximum 600)
+                , centerX
+                , alignBottom
+                ]
+                (controls model)
+            )
         )

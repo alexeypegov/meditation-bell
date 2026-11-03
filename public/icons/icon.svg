@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#212337"/>
-  <!-- ripple: ring centres at λ and 2λ, widths w and 2w (λ ≈ 82, w = λ/3)
-       colours: OKLab blends from the background towards the dot, fading outwards (65%, 40%) -->
-  <circle cx="256" cy="256" r="192" fill="#6A7180"/>  <!-- outer ring: 137–192 -->
-  <circle cx="256" cy="256" r="137" fill="#212337"/>
-  <circle cx="256" cy="256" r="96"  fill="#9DA8B1"/>  <!-- middle ring: 69–96 -->
-  <circle cx="256" cy="256" r="69"  fill="#212337"/>
-  <circle cx="256" cy="256" r="18"  fill="#EBFAFA"/>  <!-- dot -->
+  <rect width="512" height="512" fill="#323232"/>
+  <!-- bell from Ui.bellIcon (24×24) scaled to 300px and centred; colours: colors.surface / lighthouseWhite -->
+  <g transform="translate(106 106) scale(12.5)" fill="#EBFAFA">
+    <path d="M10.3 3.7V3.2a1.7 1.7 0 0 1 3.4 0v.5z"/>
+    <path d="M12 4.3C8.7 4.3 6 6.8 6 10.1V13.2C6 15.2 4.8 17 3.6 18.2C2.9 18.9 3.3 19.8 4.2 19.8H19.8C20.7 19.8 21.1 18.9 20.4 18.2C19.2 17 18 15.2 18 13.2V10.1C18 6.8 15.3 4.3 12 4.3Z"/>
+    <path d="M9.3 20.6h5.4a2.7 2.3 0 0 1-5.4 0z"/>
+  </g>
 </svg>
