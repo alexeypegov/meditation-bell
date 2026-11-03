@@ -16,11 +16,19 @@ import Time
 import Timer exposing (Phase(..), TimerStatus(..), currentElapsed, isOffSession, remaining)
 
 
-colors : { bg : Element.Color, surface : Element.Color, fg : Element.Color, inactive : Element.Color, disabled : Element.Color }
+colors :
+    { bg : Element.Color
+    , surface : Element.Color
+    , fg : Element.Color
+    , pressed : Element.Color
+    , inactive : Element.Color
+    , disabled : Element.Color
+    }
 colors =
     { bg = rgb255 20 20 20
     , surface = rgb255 50 50 50
     , fg = rgb255 200 200 200
+    , pressed = rgb255 100 100 100
     , inactive = rgb255 100 100 100
     , disabled = rgb255 100 100 100
     }
@@ -187,7 +195,7 @@ stepButton opacity onPress iconEl =
         pressed =
             case onPress of
                 Just _ ->
-                    [ mouseDown [ Background.color eldritch.tidalSurface ] ]
+                    [ mouseDown [ Background.color colors.pressed ] ]
 
                 Nothing ->
                     []
@@ -307,7 +315,7 @@ toggleControl model on iconFor msg =
          , height (px 48)
          , Border.rounded 24
          , Background.color colors.surface
-         , mouseDown [ Background.color eldritch.tidalSurface ]
+         , mouseDown [ Background.color colors.pressed ]
          , Font.color colors.fg
          , alpha
             (if visible then
@@ -362,7 +370,7 @@ warmupControl model =
 
         label =
             if model.config.warmup == 0 then
-                text (formatTime 0)
+                el [ style "min-width" "5ch" ] (el [ centerX ] (text (formatTime 0)))
 
             else if isEditable then
                 timeText model (model.config.warmup * 1000)
@@ -383,20 +391,16 @@ warmupControl model =
         buttonStyle =
             if isEditable then
                 [ Background.color colors.surface
-                , Border.color colors.surface
-                , mouseDown [ Background.color eldritch.tidalSurface ]
+                , mouseDown [ Background.color colors.pressed ]
                 ]
 
             else
-                [ Background.color transparent
-                , Border.color transparent
-                ]
+                [ Background.color transparent ]
     in
     el [ centerX ]
         (Input.button
             ([ centerX
              , paddingXY 0 8
-             , Border.width 1
              , Border.rounded 12
              , Font.size 48
              , Font.semiBold
@@ -404,7 +408,7 @@ warmupControl model =
              , Font.variant Font.tabularNumbers
              , focused []
              , alpha opacity
-             , style "transition" "background 2s, color 2s"
+             , style "transition" "background 2s, opacity 2s"
              ]
                 ++ buttonStyle
                 ++ haptic isEditable
@@ -432,7 +436,7 @@ resetButton model =
          , Border.rounded 36
          , Background.color colors.surface
          , Font.color colors.fg
-         , mouseDown [ Background.color eldritch.tidalSurface ]
+         , mouseDown [ Background.color colors.pressed ]
          , alpha
             (if visible then
                 1
@@ -515,20 +519,6 @@ logo =
 title : Model -> Element Msg
 title model =
     let
-        timer =
-            model.timer
-
-        sinceStart =
-            case ( timer.startedAt, timer.now ) of
-                ( Just started, Just now ) ->
-                    Time.posixToMillis now - Time.posixToMillis started
-
-                _ ->
-                    0
-
-        _ =
-            Debug.log "sinceStart" sinceStart
-
         opacity =
             if model.timer.status /= TimerStarted then
                 1
