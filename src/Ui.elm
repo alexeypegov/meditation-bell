@@ -12,7 +12,6 @@ import Model exposing (Model, Msg(..))
 import String
 import Svg
 import Svg.Attributes as SA
-import Time
 import Timer exposing (Phase(..), TimerStatus(..), currentElapsed, isOffSession, remaining)
 
 
@@ -27,7 +26,7 @@ colors :
 colors =
     { bg = rgb255 20 20 20
     , surface = rgb255 50 50 50
-    , fg = rgb255 200 200 200
+    , fg = rgb255 240 240 240
     , pressed = rgb255 100 100 100
     , inactive = rgb255 100 100 100
     , disabled = rgb255 100 100 100
@@ -501,7 +500,7 @@ logo =
                             Nothing
 
                         else
-                            Just (ring (toFloat n) rc (r1 - r0) "#FFF")
+                            Just (ring (toFloat n) rc (r1 - r0) "#777")
                     )
     in
     html

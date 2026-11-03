@@ -10902,7 +10902,7 @@ var $author$project$Ui$logo = function () {
 			var r1 = r(0);
 			var rc = (r0 + r1) / 2;
 			return skip ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-				A4(ring, n, rc, r1 - r0, '#FFF'));
+				A4(ring, n, rc, r1 - r0, '#777'));
 		},
 		A2($elm$core$List$range, 1, ringCount));
 	return $mdgriffith$elm_ui$Element$html(
@@ -10963,7 +10963,7 @@ var $mdgriffith$elm_ui$Element$rgb255 = F3(
 	});
 var $author$project$Ui$colors = {
 	a_: A3($mdgriffith$elm_ui$Element$rgb255, 20, 20, 20),
-	D: A3($mdgriffith$elm_ui$Element$rgb255, 200, 200, 200),
+	D: A3($mdgriffith$elm_ui$Element$rgb255, 240, 240, 240),
 	am: A3($mdgriffith$elm_ui$Element$rgb255, 100, 100, 100),
 	Y: A3($mdgriffith$elm_ui$Element$rgb255, 50, 50, 50),
 	bv: A3($mdgriffith$elm_ui$Element$rgb255, 100, 100, 100),
