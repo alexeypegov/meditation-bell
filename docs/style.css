@@ -17,6 +17,7 @@ body {
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+  overscroll-behavior: none;
 }
 
 .haptic-switch {
@@ -29,6 +30,66 @@ body {
   opacity: 0;
   /* match the round buttons; clips taps, not just paint */
   clip-path: inset(0 round 999px);
+}
+
+.ring-in,
+.ring-out {
+  opacity: var(--o);
+  transform-origin: 50px 15px;
+  animation-fill-mode: both;
+}
+
+.ring-in {
+  animation-name: ring-in;
+  animation-duration: 1s;
+  animation-timing-function: ease-in-out;
+  animation-delay: calc(var(--i) * 0.35s);
+}
+
+.ring-out {
+  --slow: 1;
+  animation-name: ring-out;
+  animation-duration: calc(var(--slow) * 1.5s);
+  animation-delay: calc(var(--slow) * (var(--i) * var(--i) * 0.3s));
+  animation-timing-function: ease-out;
+}
+
+@keyframes ring-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  60% {
+    opacity: min(1, calc(var(--o) * 1.3 + 0.12));
+    transform: scale(1.01);
+    stroke: #888;
+  }
+
+  100% {
+    opacity: var(--o);
+    transform: scale(1);
+  }
+}
+
+@keyframes ring-out {
+  0% {
+    opacity: var(--o);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .ring-in,
+  .ring-out {
+    animation-delay: 0s;
+    animation-duration: 1ms;
+    transform: none !important;
+  }
 }
 
 *,

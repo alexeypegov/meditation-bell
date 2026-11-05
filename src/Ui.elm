@@ -458,8 +458,8 @@ resetButton model =
         }
 
 
-logo : Element msg
-logo =
+logo : Bool -> Element msg
+logo hidden =
     let
         ringCount =
             10
@@ -472,7 +472,19 @@ logo =
                 , SA.fill "none"
                 , SA.strokeWidth (String.fromFloat strokeWidth)
                 , SA.stroke color
-                , SA.opacity (String.fromFloat ((1 - n / ringCount) ^ 2))
+                , SA.class
+                    (if hidden then
+                        "ring-out"
+
+                     else
+                        "ring-in"
+                    )
+                , SA.style
+                    ("--o: "
+                        ++ String.fromFloat ((1 - n / ringCount) ^ 2)
+                        ++ "; --i: "
+                        ++ String.fromInt ((round n - 1) // 2)
+                    )
                 ]
                 []
 
@@ -517,21 +529,9 @@ logo =
 
 title : Model -> Element Msg
 title model =
-    let
-        opacity =
-            if model.timer.status /= TimerStarted then
-                1
-
-            else
-                0
-    in
     el
-        [ width fill
-        , height fill
-        , alpha opacity
-        , style "transition" "opacity 2s"
-        ]
-        logo
+        [ width fill, height fill ]
+        (logo (model.timer.phase == Meditating))
 
 
 toggles : Model -> Element Msg
