@@ -1,6 +1,6 @@
 {
-  "name": "Bell - Meditation timer",
-  "short_name": "Bell",
+  "name": "Bells - Meditation timer",
+  "short_name": "Bells",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
