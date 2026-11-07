@@ -36,19 +36,14 @@ tasks:
       - python3 -m http.server {{.PORT}} --bind 0.0.0.0
 
   icons:
-    desc: Render PNG icons from icon.svg (rasterised by macOS Quick Look/WebKit; ImageMagick's own SVG renderer aliases edges)
+    desc: Render PNG icons from icon.svg with resvg (brew install resvg)
     sources:
       - '{{.PUBLIC}}/icons/icon.svg'
     generates:
       - '{{.PUBLIC}}/icons/icon-*.png'
-    vars:
-      TMP:
-        sh: mktemp -d
     cmds:
-      - qlmanage -t -s 1024 -o {{.TMP}} {{.PUBLIC}}/icons/icon.svg > /dev/null
       - for: ['180', '192', '512']
-        cmd: magick {{.TMP}}/icon.svg.png -filter Lanczos -resize {{.ITEM}}x{{.ITEM}} PNG24:{{.PUBLIC}}/icons/icon-{{.ITEM}}.png
-      - rm -rf {{.TMP}}
+        cmd: resvg -w {{.ITEM}} -h {{.ITEM}} {{.PUBLIC}}/icons/icon.svg {{.PUBLIC}}/icons/icon-{{.ITEM}}.png
 
   clean:
     desc: Remove build output
