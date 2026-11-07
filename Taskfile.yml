@@ -58,9 +58,13 @@ tasks:
       - '{{.PUBLIC}}/icons/icon.svg'
     generates:
       - '{{.PUBLIC}}/icons/icon-*.png'
+      - '{{.PUBLIC}}/apple-touch-icon*.png'
     cmds:
-      - for: ['180', '192', '512']
+      - for: ['192', '512']
         cmd: resvg -w {{.ITEM}} -h {{.ITEM}} {{.PUBLIC}}/icons/icon.svg {{.PUBLIC}}/icons/icon-{{.ITEM}}.png
+      # iOS/Safari look for these at the site root by name; -precomposed is requested first (same image, iOS adds no effects since iOS 7)
+      - resvg -w 180 -h 180 {{.PUBLIC}}/icons/icon.svg {{.PUBLIC}}/apple-touch-icon.png
+      - cp {{.PUBLIC}}/apple-touch-icon.png {{.PUBLIC}}/apple-touch-icon-precomposed.png
 
   clean-dist:
     desc: Remove the production build (docs/)

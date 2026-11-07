@@ -467,7 +467,7 @@ logo hidden =
         ring n r strokeWidth color =
             Svg.circle
                 [ SA.cx "50"
-                , SA.cy "15"
+                , SA.cy "25"
                 , SA.r (String.fromFloat r)
                 , SA.fill "none"
                 , SA.strokeWidth (String.fromFloat strokeWidth)
