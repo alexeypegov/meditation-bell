@@ -1,5 +1,5 @@
-var Haptics = (function () {
-  "use strict";
+// Side effects only: installs the click listeners on import.
+(function () {
 
   // a tap on the cover's label is forwarded to its switch as a second click; the button needs only one
   document.addEventListener(

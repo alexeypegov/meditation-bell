@@ -2,35 +2,52 @@ version: '3'
 
 vars:
   MAIN: src/Main.elm
+  ENTRY: js/main.js
   PUBLIC: public
+  BUILD: build
   DIST: docs
   PORT: '{{.PORT | default "8000"}}'
 
 tasks:
   default:
     cmds:
-      - task: build
+      - task: dist
 
-  build:
-    desc: Production build into docs/ for GitHub Pages (service worker cache versioned by content)
-    deps: [icons]
+  dist:
+    desc: Production build into docs/ for GitHub Pages (js/main.js bundled by esbuild into one minified app.js, service worker cache versioned by content)
+    deps: [icons, clean-dist]
     cmds:
-      - rm -rf {{.DIST}}
-      - mkdir -p {{.DIST}}
-      - rsync -a --exclude elm.js --exclude .DS_Store {{.PUBLIC}}/ {{.DIST}}/
-      - elm make {{.MAIN}} --optimize --output={{.DIST}}/elm.js
-      - sed -i '' "s/__BUILD_ID__/$(find {{.DIST}} -type f ! -name sw.js | sort | xargs cat | shasum | cut -c1-8)/" {{.DIST}}/sw.js
-      - touch {{.DIST}}/.nojekyll
+      - rsync -a --exclude .DS_Store {{.PUBLIC}}/ {{.DIST}}/
+      - elm make {{.MAIN}} --optimize --output={{.BUILD}}/elm-optimized.js
+      - esbuild {{.ENTRY}} --bundle --minify --define:DEV=false --alias:elm=./{{.BUILD}}/elm-optimized.js --outfile={{.DIST}}/app.js
+      # service worker last: its cache name is a hash of everything else in docs/
+      - esbuild js/sw.js --minify --define:BUILD_ID="\"$(find {{.DIST}} -type f | sort | xargs cat | shasum | cut -c1-8)\"" --outfile={{.DIST}}/sw.js
 
   dev:
-    desc: Dev server with live reload (debugger enabled)
+    desc: Dev server on build/ with live reload (Elm debugger enabled); public/ files are symlinked, so edits show up as-is
     deps: [icons]
     cmds:
-      - elm-live {{.MAIN}} --dir={{.PUBLIC}} --port={{.PORT}} --open -- --debug --output={{.PUBLIC}}/elm.js
+      - mkdir -p {{.BUILD}}
+      # refresh only the links to public/ (drops ones whose file is gone); compiled output is kept
+      - find {{.BUILD}} -maxdepth 1 -type l -delete
+      - for f in {{.PUBLIC}}/*; do ln -s "../$f" {{.BUILD}}/; done
+      - task: elm-dev
+      # Elm recompiles on change in the background; esbuild rebundles when the Elm output or js/*.js change and reloads the page
+      - sh -c 'task --watch elm-dev & trap "kill -INT $!" EXIT; esbuild {{.ENTRY}} --bundle --define:DEV=true --alias:elm=./{{.BUILD}}/elm-debug.js --outfile={{.BUILD}}/app.js --servedir={{.BUILD}} --serve={{.PORT}} --watch'
+
+  elm-dev:
+    desc: Compile Elm with the debugger into build/ (run by `task dev`, which keeps it watching)
+    sources:
+      - src/**/*.elm
+      - elm.json
+    generates:
+      - '{{.BUILD}}/elm-debug.js'
+    cmds:
+      - elm make {{.MAIN}} --debug --output={{.BUILD}}/elm-debug.js
 
   serve:
     desc: Serve the production build on the LAN (to test install on a phone)
-    deps: [build]
+    deps: [dist]
     dir: '{{.DIST}}'
     cmds:
       - python3 -m http.server {{.PORT}} --bind 0.0.0.0
@@ -45,7 +62,13 @@ tasks:
       - for: ['180', '192', '512']
         cmd: resvg -w {{.ITEM}} -h {{.ITEM}} {{.PUBLIC}}/icons/icon.svg {{.PUBLIC}}/icons/icon-{{.ITEM}}.png
 
-  clean:
-    desc: Remove build output
+  clean-dist:
+    desc: Remove the production build (docs/)
     cmds:
-      - rm -rf {{.DIST}} {{.PUBLIC}}/elm.js elm-stuff .task
+      - rm -rf {{.DIST}}
+
+  clean:
+    desc: Remove all build output and caches
+    deps: [clean-dist]
+    cmds:
+      - rm -rf {{.BUILD}} elm-stuff .task

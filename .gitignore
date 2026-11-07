@@ -1,4 +1,4 @@
 elm-stuff/
-public/elm.js
+build/
 .DS_Store
 .task/

@@ -1,5 +1,4 @@
-var Session = (function () {
-  "use strict";
+export const Session = (function () {
 
   var SOUNDS = ["starting", "interval-1", "interval-2", "interval-3", "final"];
 

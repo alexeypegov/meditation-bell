@@ -21,10 +21,10 @@ A simple meditation timer that rings a bell — at the start, at the end, and, i
 Written in [Elm](https://elm-lang.org) 0.19 with [elm-ui](https://package.elm-lang.org/packages/mdgriffith/elm-ui/latest/). Uses [Task](https://taskfile.dev) to run the build commands.
 
 ```sh
-task dev     # dev server with live reload and the Elm debugger
-task build   # production build into docs/
+task dev     # dev server from build/ with live reload and the Elm debugger
+task dist    # production build into docs/ (one minified app.js)
 task serve   # build and serve on the LAN, to test installing on a phone
 task icons   # render the PNG icons from public/icons/icon.svg
 ```
 
-The site is served by GitHub Pages from `docs/`. Run `task build` and commit `docs/` to deploy.
+The site is served by GitHub Pages from `docs/`. Run `task dist` and commit `docs/` to deploy.

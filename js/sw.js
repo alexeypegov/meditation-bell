@@ -1,12 +1,12 @@
-// Set by `task build` to a hash of the build, so a changed release invalidates the old cache.
-const CACHE = "timer-__BUILD_ID__";
+// BUILD_ID is set by `task dist` (esbuild --define) to a hash of the build,
+// so a changed release invalidates the old cache.
+const CACHE = "timer-" + BUILD_ID;
 
+// Only used in the `task dist` build, where all scripts are bundled into app.js.
 const ASSETS = [
   "./",
   "index.html",
-  "elm.js",
-  "session.js",
-  "haptic.js",
+  "app.js",
   "style.css",
   "manifest.webmanifest",
   "icons/icon.svg",
