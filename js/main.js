@@ -40,12 +40,24 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && wantAwake) acquireWakeLock();
 });
 
-// The animation timeline is frozen while the screen is locked, but Elm keeps running and can
-// switch the rings meanwhile; jump such animations to their end so they don't replay on unlock.
+// While the screen is locked the animation timeline is frozen, but the session goes on (bells play).
+// On unlock everything should look as if it had played in real time, so every CSS animation and
+// transition (rings, warmup → session colour, fading buttons) is jumped to its end, whether it was
+// mid-way, still in its delay, or only starting now. Elm redraws in requestAnimationFrame, which doesn't
+// run while locked, so state changed meanwhile reaches the DOM on the first frame after unlock; Elm's
+// redraw was queued earlier and runs before ours in that frame. The second frame is a fallback.
+function finishAnimations() {
+  document.getAnimations().forEach(function (a) {
+    var timing = a.effect && a.effect.getComputedTiming();
+    if (timing && timing.endTime !== Infinity) a.finish();
+  });
+}
+
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState !== "visible") return;
-  document.getAnimations().forEach(function (a) {
-    if (a.animationName === "ring-out" || a.animationName === "ring-in") a.finish();
+  requestAnimationFrame(function () {
+    finishAnimations();
+    requestAnimationFrame(finishAnimations);
   });
 });
 
