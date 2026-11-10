@@ -40,6 +40,15 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && wantAwake) acquireWakeLock();
 });
 
+// The animation timeline is frozen while the screen is locked, but Elm keeps running and can
+// switch the rings meanwhile; jump such animations to their end so they don't replay on unlock.
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState !== "visible") return;
+  document.getAnimations().forEach(function (a) {
+    if (a.animationName === "ring-out" || a.animationName === "ring-in") a.finish();
+  });
+});
+
 app.ports.keepAwake.subscribe(function (awake) {
   Session.setActive(awake.session);
 
