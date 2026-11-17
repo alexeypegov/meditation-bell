@@ -14,7 +14,7 @@ type Bell
 -}
 intervalBellVariantCount : Int
 intervalBellVariantCount =
-    8
+    5
 
 
 {-| Maximum number of interval bells
