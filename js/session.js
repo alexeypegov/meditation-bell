@@ -1,6 +1,6 @@
 export const Session = (function () {
 
-  var SOUNDS = ["starting", "interval-1", "interval-2", "interval-3", "interval-4", "interval-5", "final"];
+  var SOUNDS = ["starting", "interval-1", "interval-2", "interval-3", "final"];
 
   var ctx = null; // null when released
   var active = false; // a session is running

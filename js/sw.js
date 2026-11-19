@@ -18,8 +18,6 @@ const ASSETS = [
   "sounds/interval-1.mp3",
   "sounds/interval-2.mp3",
   "sounds/interval-3.mp3",
-  "sounds/interval-4.mp3",
-  "sounds/interval-5.mp3",
   "sounds/final.mp3",
   "fonts/archivo.woff2",
 ];
